@@ -144,6 +144,11 @@ the phone and narrates each step; never use it for real authentication.
 - Apple's push endpoint rejects VAPID tokens whose subject mentions `localhost`.
 - Passkey creation fails with `NotAllowedError` inside in-app browsers (KakaoTalk, etc.). Use Safari.
 
+## Contributing and security
+
+See `CONTRIBUTING.md` for how the code is organised and tested, and `SECURITY.md` for the
+trust model, known limitations and how to report a vulnerability.
+
 ## License
 
 MIT. See `LICENSE`.
