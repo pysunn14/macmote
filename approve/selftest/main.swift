@@ -87,11 +87,10 @@ expect("webauthn.create used as an assertion is refused", { _ = try verify(try a
 // part out and says so; the structural checks still prove a real symbol was drawn.
 let skipVision = CommandLine.arguments.contains("--skip-vision")
 expect("QR code structure and terminal rendering") {
-    let link = "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp"
+    let link = "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp"   // 52 bytes: version 4-M
     let grid = try QRCode.modules(link)
     let size = grid.count
-    guard size >= 21 else { throw Failure(description: "grid too small: \(size)") }
-    // CoreImage adds a one-module quiet zone; a finder pattern is a 7x7 ring (dark, light, dark).
+    // A finder pattern is a 7x7 ring (dark, light, dark) in three corners of the symbol.
     func finder(at ox: Int, _ oy: Int) -> Bool {
         for y in 0..<7 { for x in 0..<7 {
             let ring = max(abs(x - 3), abs(y - 3))   // 0..3 from the centre: dark core, light ring, dark border
@@ -100,12 +99,10 @@ expect("QR code structure and terminal rendering") {
         } }
         return true
     }
-    let inset = 1
-    guard finder(at: inset, inset), finder(at: size - 7 - inset, inset), finder(at: inset, size - 7 - inset) else {
-        let dark = grid.reduce(0) { $0 + $1.filter { $0 }.count }
-        let rows = grid.prefix(10).map { $0.map { $0 ? "#" : "." }.joined() }.joined(separator: "\n")
-        throw Failure(description: "finder patterns missing; CoreImage drew \(size)x\(size) with \(dark) dark modules:\n\(rows)")
+    guard finder(at: 0, 0), finder(at: size - 7, 0), finder(at: 0, size - 7) else {
+        throw Failure(description: "finder patterns missing in a \(size)x\(size) symbol")
     }
+    guard size == 17 + 4 * 4 else { throw Failure(description: "expected a version 4 symbol (33 modules), got \(size)") }
     let lines = QRCode.terminalLines(grid, quiet: 0)
     var rebuilt = [[Bool]](repeating: [Bool](repeating: false, count: size), count: size)
     for (row, line) in lines.enumerated() {
@@ -119,8 +116,9 @@ expect("QR code structure and terminal rendering") {
 }
 if skipVision {
     print("skip QR code decodes with Vision (--skip-vision: not available on CI virtual machines)")
-} else { expect("QR code decodes with Vision") {
-    let link = "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp"
+} else { for link in ["hi", "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp",
+                      "https://mac.example.com:18791/#pair=" + String(repeating: "x", count: 120),
+                      String(repeating: "0123456789", count: 20)] { expect("QR code decodes with Vision (\(link.utf8.count) bytes)") {
     let grid = try QRCode.modules(link)
     let size = grid.count
     var pixels = [UInt8](repeating: 255, count: size * size)
@@ -138,7 +136,7 @@ if skipVision {
     try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
     guard let payload = request.results?.first?.payloadStringValue else { throw Failure(description: "QR not detected") }
     guard payload == link else { throw Failure(description: "decoded \(payload)") }
-} }
+} } }
 
 print(failures == 0 ? "selftest passed" : "selftest FAILED (\(failures))")
 exit(failures == 0 ? 0 : 1)
