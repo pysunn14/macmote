@@ -39,6 +39,7 @@ git config core.hooksPath .githooks        # once: enables the privacy check
 scripts/build.sh                           # native helpers and tools
 /usr/bin/python3 -m unittest discover -s tests -t .
 build/passkey-selftest                     # verification and QR code round trips
+sh scripts/ci.sh                           # the full set CI runs; run it before pushing
 python3 -m macremote agent restart         # after server changes
 ```
 

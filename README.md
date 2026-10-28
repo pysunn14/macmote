@@ -131,11 +131,15 @@ one is still pending (409). A refused `sudo` falls through to Touch ID and the p
 ## Testing
 
 ```sh
+sh scripts/ci.sh                             # everything CI runs: privacy scan, build, tests, self-test, page checks
 python3 -m unittest discover -s tests -t .   # server, relay, actions, push (fake runner)
-build/passkey-selftest                       # verification code against synthetic passkeys
+build/passkey-selftest                       # verification code against synthetic passkeys, QR round trip
 sudo build/pamtest                           # runs the module through /etc/pam.d/macremote-test
 scripts/check-private.sh --all               # no machine-specific strings in the tree
 ```
+
+GitHub Actions runs `scripts/ci.sh` on a macOS runner for every push and pull request
+(`.github/workflows/ci.yml`).
 
 `build/webpush encrypt` is checked against the RFC 8291 example. The test PAM service always asks
 the phone and narrates each step; never use it for real authentication.
