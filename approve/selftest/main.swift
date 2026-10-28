@@ -102,7 +102,9 @@ expect("QR code structure and terminal rendering") {
     }
     let inset = 1
     guard finder(at: inset, inset), finder(at: size - 7 - inset, inset), finder(at: inset, size - 7 - inset) else {
-        throw Failure(description: "finder patterns missing; CoreImage did not draw a QR symbol")
+        let dark = grid.reduce(0) { $0 + $1.filter { $0 }.count }
+        let rows = grid.prefix(10).map { $0.map { $0 ? "#" : "." }.joined() }.joined(separator: "\n")
+        throw Failure(description: "finder patterns missing; CoreImage drew \(size)x\(size) with \(dark) dark modules:\n\(rows)")
     }
     let lines = QRCode.terminalLines(grid, quiet: 0)
     var rebuilt = [[Bool]](repeating: [Bool](repeating: false, count: size), count: size)
