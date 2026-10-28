@@ -22,7 +22,7 @@ if [ "${1:-}" = "remove" ]; then
         cat /etc/pam.d/sudo_local.new > /etc/pam.d/sudo_local
         rm /etc/pam.d/sudo_local.new
     fi
-    rm -f "$module" "$tool" /etc/pam.d/macremote-test
+    rm -f "$module" "$tool" /etc/pam.d/macremote-test /etc/newsyslog.d/mac-remote.conf
     echo "Removed. /etc/mac-remote/passkeys.json was left in place."
     exit 0
 fi
@@ -37,6 +37,14 @@ printf '%s\n' "# mac-remote PAM module test service (scripts/install-sudo.sh): n
     "auth       required       $module timeout=90 debug=1" \
     > /etc/pam.d/macremote-test
 chmod 644 /etc/pam.d/macremote-test
+
+# The module appends to /var/log/mac-remote-pam.log on every sudo; newsyslog keeps it bounded
+# (rotate at 1000 KB, keep 5 compressed copies). The module reopens the file per invocation, so
+# no signal is needed.
+install -d -o root -g wheel -m 755 /etc/newsyslog.d
+printf '%s\n' "# logfilename                 [owner:group]  mode count size  when  flags" \
+    "/var/log/mac-remote-pam.log  root:wheel     644  5     1000  *     J" > /etc/newsyslog.d/mac-remote.conf
+chmod 644 /etc/newsyslog.d/mac-remote.conf
 
 if [ ! -f /etc/pam.d/sudo_local ]; then
     cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local
@@ -53,6 +61,7 @@ chmod 644 /etc/pam.d/sudo_local
 echo "Installed"
 echo "  module: $module"
 echo "  tool:   $tool"
+echo "  log rotation: /etc/newsyslog.d/mac-remote.conf"
 echo "  sudo_local:"
 sed 's/^/    /' /etc/pam.d/sudo_local
 origin=$(/usr/bin/python3 -m macremote config origin 2>/dev/null || true)

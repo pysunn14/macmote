@@ -37,10 +37,12 @@ no maintained release branches.
 - **Local prompt.** The module shows the Mac's Touch ID dialog alongside the phone request by
   switching its effective uid to the invoking user for LocalAuthentication; a local success is
   not independently verified by the module beyond what LocalAuthentication reports.
-- **The relay accepts requests from any local process.** Flooding it produces phone
-  notifications. Rate limiting is planned.
+- **The relay accepts requests from any local process.** It refuses more than 6 per minute
+  and identical pending requests, so a flood costs at most a few notifications per minute, but
+  a hostile local process can still make the phone ring.
 - **Logs contain full command lines.** Secrets passed on a `sudo` command line end up in
-  `/var/log/mac-remote-pam.log` and the server log.
+  `/var/log/mac-remote-pam.log` and `~/.local/state/mac-remote/server.log`. Both rotate
+  (newsyslog and an in-process rotating handler), but rotated copies are kept.
 - **Private macOS APIs** back the keyboard backlight, brightness and lock features. They can
   break with a macOS update; failures show up in `GET /api/state` under `errors`.
 

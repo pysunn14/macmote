@@ -11,9 +11,10 @@ from typing import Any, Callable, Optional
 from urllib.parse import parse_qs, urlsplit
 
 from .actions import apply
-from .approvals import KINDS, Relay
+from .approvals import KINDS, Duplicate, RateLimited, Relay
 from . import config
-from .commands import HELPER, STATE_DIR, WEB, ActionError, InvalidAction, Unavailable, log, now, run, write_json_atomic
+from .commands import (HELPER, STATE_DIR, WEB, ActionError, InvalidAction, Unavailable, log, now, open_log, run,
+                       write_json_atomic)
 from .push import Push, validate_subscription
 from .state import read_name, read_state
 
@@ -241,7 +242,12 @@ class Handler(BaseHTTPRequestHandler):
     def _post_approval(self, parts: list, body: dict) -> None:
         relay = self.server.app.relay
         if len(parts) == 4:
-            self._json(201, relay.create(parts[3], body))
+            try:
+                self._json(201, relay.create(parts[3], body))
+            except Duplicate as error:
+                self._json(409, {"error": str(error), "existing_id": error.existing_id})
+            except RateLimited as error:
+                self._json(429, {"error": str(error)})
         elif parts[5] == "answer":
             self._json(200, relay.answer(parts[4], body))
         else:
@@ -284,6 +290,7 @@ def serve(host: str, port: int) -> None:
         raise SystemExit("the server only listens on loopback; expose it with Tailscale Serve or another TLS proxy")
     if not os.access(HELPER, os.X_OK):
         raise SystemExit(f"helper missing: {HELPER} (run scripts/build.sh)")
+    open_log(STATE_DIR / "server.log")  # rotating; launchd's stderr file keeps only crashes
     try:
         push: Optional[Push] = Push(STATE_DIR, subject=config.https_origin())
     except (RuntimeError, OSError, ValueError) as error:

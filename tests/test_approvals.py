@@ -129,3 +129,47 @@ class ExpiryTests(unittest.TestCase):
             relay.answer(item["id"], ASSERTION)
         clock.t += ap.KEEP_DECIDED + 1
         self.assertIsNone(relay.get(item["id"]))
+
+
+class FloodTests(unittest.TestCase):
+    """A local process can hit the relay freely, so the relay itself must bound the damage."""
+
+    def test_requests_beyond_the_window_limit_are_refused(self):
+        clock = FakeClock()
+        relay = ap.Relay(clock=clock)
+        for n in range(ap.RATE_LIMIT):
+            relay.create("sudo", {**SUDO, "command": ["sudo", "echo", str(n)]})
+        with self.assertRaises(ap.RateLimited):
+            relay.create("sudo", {**SUDO, "command": ["sudo", "echo", "one too many"]})
+        clock.t += ap.RATE_WINDOW + 1
+        relay.create("sudo", {**SUDO, "command": ["sudo", "echo", "after the window"]})
+
+    def test_refused_requests_send_no_notification(self):
+        seen = []
+        relay = ap.Relay(notify=seen.append, clock=FakeClock())
+        for n in range(ap.RATE_LIMIT):
+            relay.create("sudo", {**SUDO, "command": ["sudo", "echo", str(n)]})
+        with self.assertRaises(ap.RateLimited):
+            relay.create("sudo", {**SUDO, "command": ["sudo", "echo", "flood"]})
+        self.assertEqual(len(seen), ap.RATE_LIMIT)
+
+    def test_identical_pending_request_is_refused_with_the_existing_id(self):
+        relay = ap.Relay()
+        first = relay.create("sudo", SUDO)
+        with self.assertRaises(ap.Duplicate) as caught:
+            relay.create("sudo", SUDO)
+        self.assertEqual(caught.exception.existing_id, first["id"])
+        relay.deny(first["id"])
+        relay.create("sudo", SUDO)  # allowed again once the earlier one is settled
+
+    def test_kinds_are_limited_separately(self):
+        relay = ap.Relay(clock=FakeClock())
+        for n in range(ap.RATE_LIMIT):
+            relay.create("sudo", {**SUDO, "command": ["sudo", "echo", str(n)]})
+        relay.create("enroll", ENROLL)
+
+    def test_only_one_enrollment_may_be_pending(self):
+        relay = ap.Relay()
+        relay.create("enroll", ENROLL)
+        with self.assertRaises(ap.Duplicate):
+            relay.create("enroll", {**ENROLL, "challenge": "b3RoZXI"})

@@ -50,6 +50,7 @@ sudo ──► pam_macremote.so (root) ─────────────�
   command text than the one being approved; the signature binds the challenge, not the text.
   Approvals are cached by sudo's normal timestamp (5 minutes by default). POST requests
   require a custom header and same-origin, which blocks cross-site forgery from other pages.
+  Request creation is rate limited so a local process cannot flood the phone with cards.
 - Push payloads are encrypted end to end (RFC 8291); Apple's servers see ciphertext.
 
 ## Requirements
@@ -114,14 +115,18 @@ python3 -m macremote agent status|restart|uninstall
 python3 -m macremote state                 # current state as JSON
 python3 -m macremote run volume 30         # run one action
 python3 -m macremote config                # effective configuration
-tail ~/.local/state/mac-remote/launchd.err.log   # server log: actions, approvals, push, client errors
-tail /var/log/mac-remote-pam.log                 # PAM module log
+tail ~/.local/state/mac-remote/server.log        # server log: actions, approvals, push, client errors (rotates at 1 MB, 5 kept)
+tail /var/log/mac-remote-pam.log                 # PAM module log (newsyslog rotates it; see /etc/newsyslog.d/mac-remote.conf)
 sudo scripts/install-sudo.sh remove        # unhook from sudo_local, delete module and tool
 ```
 
 Every action response carries the state re-read from the system; `action.reached` says whether
 the Mac actually did it. `GET /api/state` includes per-field errors, the server heartbeat and the
-last action. `~/.local/state/mac-remote/` holds the heartbeat, push subscriptions and VAPID keys.
+last action. `~/.local/state/mac-remote/` holds the heartbeat, push subscriptions, VAPID keys and
+the server log; `launchd.err.log` there only receives crashes.
+
+The relay refuses more than 6 approval requests per minute (429) and an identical request while
+one is still pending (409). A refused `sudo` falls through to Touch ID and the password.
 
 ## Testing
 

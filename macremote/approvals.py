@@ -19,6 +19,22 @@ from .commands import InvalidAction, now
 
 KEEP_DECIDED = 600.0  # seconds a decided or expired item stays readable for late pollers
 MAX_TIMEOUT = 600
+# Any local process can create requests, and each sudo request becomes a phone notification.
+# These bounds keep a runaway or hostile process from burying real requests under a flood.
+RATE_LIMIT = 6        # creations per kind within RATE_WINDOW
+RATE_WINDOW = 60.0    # seconds
+
+
+class RateLimited(InvalidAction):
+    """Too many requests of one kind in the window; the asker should fall back to local auth."""
+
+
+class Duplicate(InvalidAction):
+    """An identical request is already waiting for the phone."""
+
+    def __init__(self, existing_id: str):
+        super().__init__(f"an identical request is already pending ({existing_id})")
+        self.existing_id = existing_id
 _BASE64URL = re.compile(r"^[A-Za-z0-9_-]{1,8192}$")
 
 
@@ -64,12 +80,14 @@ KINDS = {
         "answer": {"credential_id": _base64url, "authenticator_data": _base64url,
                    "client_data_json": _base64url, "signature": _base64url},
         "notify": True,
+        "identity": ("command", "cwd", "user"),  # fields that make two pending requests "the same"
     },
     "enroll": {
         "request": {"user": _text(256), "challenge": _base64url, "rp_id": _text(256), "timeout": _timeout},
         "answer": {"code": _text(16), "credential_id": _base64url, "public_key": _base64url,
                    "client_data_json": _base64url},
         "notify": False,
+        "identity": (),  # only one enrollment window at a time
     },
 }
 
@@ -91,6 +109,7 @@ def _validated(fields: dict, body: Any) -> dict:
 class Relay:
     def __init__(self, notify: Optional[Callable[[dict], None]] = None, clock: Callable[[], float] = time.monotonic):
         self._items: dict = {}
+        self._window: list = []  # (kind, created clock) of recent creations, for the rate limit
         self._condition = threading.Condition()
         self._notify = notify
         self._clock = clock
@@ -102,8 +121,19 @@ class Relay:
         item = _validated(spec["request"], body)
         item.update(id=secrets.token_urlsafe(12), kind=kind, status="pending", created_at=now(),
                     answer=None, decided_at=None)
-        item["_deadline"] = self._clock() + item["timeout"]
+        clock = self._clock()
+        item["_deadline"] = clock + item["timeout"]
         with self._condition:
+            self._sweep()
+            self._window = [(k, t) for k, t in self._window if t > clock - RATE_WINDOW]
+            if sum(1 for k, _ in self._window if k == kind) >= RATE_LIMIT:
+                raise RateLimited(f"more than {RATE_LIMIT} {kind} requests in {int(RATE_WINDOW)}s")
+            identity = spec["identity"]
+            for other in self._items.values():
+                if other["kind"] == kind and other["status"] == "pending" \
+                        and all(other[f] == item[f] for f in identity):
+                    raise Duplicate(other["id"])
+            self._window.append((kind, clock))
             self._items[item["id"]] = item
         if spec["notify"] and self._notify is not None:
             self._notify(self._public(item))

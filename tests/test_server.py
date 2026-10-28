@@ -47,6 +47,13 @@ class ServerCase(unittest.TestCase):
         cls.server.shutdown()
         cls.server.server_close()
 
+    def setUp(self):
+        # Each test starts with an empty relay: the flood and duplicate guards would otherwise
+        # trip on the fixtures the previous test left pending.
+        with self.app.relay._condition:
+            self.app.relay._items.clear()
+            self.app.relay._window.clear()
+
     def request(self, method, path, body=None, headers=None):
         data = None if body is None else json.dumps(body).encode()
         request = urllib.request.Request(self.base + path, data=data, headers=headers or {}, method=method)
@@ -220,3 +227,20 @@ class PushRouteTests(ServerCase):
         status, _ = self.post("/api/push/unsubscribe", {"endpoint": SUBSCRIPTION["endpoint"]})
         self.assertEqual(status, 200)
         self.assertEqual(self.push.subscriptions, [])
+
+
+class FloodRouteTests(ServerCase):
+    def test_flood_is_429_and_duplicate_is_409(self):
+        relay = self.app.relay
+        from macremote import approvals as ap
+        for n in range(ap.RATE_LIMIT):
+            status, _ = self.post("/api/approvals/sudo", {**SUDO, "command": ["sudo", "echo", f"f{n}"]})
+            self.assertEqual(status, 201)
+        status, body = self.post("/api/approvals/sudo", {**SUDO, "command": ["sudo", "echo", "flood"]})
+        self.assertEqual(status, 429)
+        self.setUp()
+        _, first = self.post("/api/approvals/sudo", {**SUDO, "command": ["sudo", "echo", "dup"]})
+        status, body = self.post("/api/approvals/sudo", {**SUDO, "command": ["sudo", "echo", "dup"]})
+        self.assertEqual(status, 409)
+        self.assertEqual(body["existing_id"], first["id"])
+        relay.deny(first["id"])
