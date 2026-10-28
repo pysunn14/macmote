@@ -1,5 +1,6 @@
 import unittest
 
+from macmote import commands as c
 from macmote import state as s
 from tests.fakes import BATTERY_TEXT, FakeRunner
 
@@ -85,6 +86,14 @@ class AudioAndMediaStateTests(unittest.TestCase):
         self.assertIs(state["media"]["playing"], True)
 
     def test_missing_media_and_audio_are_none(self):
-        state = s.read_state(FakeRunner(media=None if False else {"title": ""}, audio={"default": None, "devices": "?"}))
+        state = s.read_state(FakeRunner(media={}, audio={"default": None, "devices": "?"}))
         self.assertIsNone(state["media"])
         self.assertIsNone(state["audio"])
+
+    def test_media_document_from_the_script(self):
+        self.assertIsNone(s.parse_media("null"))
+        self.assertIsNone(s.parse_media(""))
+        media = s.parse_media('{"title": "T", "artist": "A", "app": "YouTube Music", "playing": true, "elapsed": 9.5, "duration": 120}')
+        self.assertEqual((media["title"], media["app"], media["playing"], media["elapsed"]), ("T", "YouTube Music", True, 9.5))
+        with self.assertRaises(c.ActionError):
+            s.parse_media('{"title": "x", "error": "MediaRemote did not load"}')

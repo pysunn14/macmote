@@ -161,8 +161,11 @@ the phone and narrates each step; never use it for real authentication.
   refuses them with 409 instead.
 - Some USB DACs expose no mute control (`output muted` is `missing value`); mute is then done
   in software by driving the volume to 0 and restoring the remembered level.
-- Transport commands go through MediaRemote (private) and fall back to synthesised media-key
-  events; success is judged by the playing flag or the track actually changing.
+- Since macOS 15.4, MediaRemote only answers processes with a `com.apple.*` bundle identifier.
+  Now playing is therefore read, and transport commands sent, by `macmote/nowplaying.js`
+  running under `osascript` (which qualifies) through the ObjC bridge. Works for any player that
+  publishes to Now Playing, browsers included. Success is judged by the playing flag or the track
+  actually changing, so a future macOS that blocks commands shows as "did not change".
 - Apple's push endpoint rejects VAPID tokens whose subject mentions `localhost`.
 - Passkey creation fails with `NotAllowedError` inside in-app browsers (KakaoTalk, etc.). Use Safari.
 

@@ -5,7 +5,7 @@ import json
 import re
 from typing import Callable, Optional
 
-from .commands import HELPER, OSASCRIPT, PMSET, SCUTIL, ActionError, log, run
+from .commands import HELPER, NOWPLAYING, OSASCRIPT, PMSET, SCUTIL, ActionError, log, run
 
 
 def parse_volume(text: str) -> tuple:
@@ -53,11 +53,7 @@ def read_state(run: Callable = run) -> dict:
         if isinstance(audio, dict) and isinstance(audio.get("devices"), list):
             state["audio"] = {"default": audio.get("default"),
                               "devices": [d for d in audio["devices"] if isinstance(d, dict) and d.get("uid")]}
-        media = helper.get("media")
-        if isinstance(media, dict) and media.get("title"):
-            state["media"] = {"title": media["title"], "artist": media.get("artist") or "", "album": media.get("album") or "",
-                              "playing": bool(media.get("playing")), "elapsed": float(media.get("elapsed") or 0),
-                              "duration": float(media.get("duration") or 0)}
+
         for field in ("keyboard", "brightness"):
             if helper.get(f"{field}_error"):
                 errors[field] = helper[f"{field}_error"]
@@ -67,7 +63,23 @@ def read_state(run: Callable = run) -> dict:
         state["battery"] = parse_battery(run([PMSET, "-g", "batt"]))
     except ActionError as error:
         errors["battery"] = str(error)
+    try:
+        state["media"] = parse_media(run([OSASCRIPT, "-l", "JavaScript", NOWPLAYING]))
+    except (ActionError, ValueError) as error:
+        errors["media"] = str(error)
     return state
+
+
+def parse_media(text: str) -> Optional[dict]:
+    """The now-playing document from nowplaying.js, or None when nothing is playing."""
+    media = json.loads(text or "null")
+    if not isinstance(media, dict) or not media.get("title"):
+        return None
+    if "error" in media:
+        raise ActionError(str(media["error"]))
+    return {"title": media["title"], "artist": media.get("artist") or "", "album": media.get("album") or "",
+            "app": media.get("app") or "", "playing": bool(media.get("playing")),
+            "elapsed": float(media.get("elapsed") or 0), "duration": float(media.get("duration") or 0)}
 
 
 def read_name(run: Callable = run) -> str:

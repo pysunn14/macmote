@@ -53,8 +53,8 @@ class ApplyTests(unittest.TestCase):
     def test_apply_runs_steps_in_order_and_returns_fresh_state(self):
         runner = FakeRunner()
         state = a.apply("away", None, runner, wait=0)
-        actions = [call for call in runner.calls if call not in ([c.HELPER, "state"], [c.PMSET, "-g", "batt"])
-                   and call[:3] != [c.OSASCRIPT, "-e", "get volume settings"]]
+        reads = ([c.HELPER, "state"], [c.PMSET, "-g", "batt"], [c.OSASCRIPT, "-l", "JavaScript", c.NOWPLAYING])
+        actions = [call for call in runner.calls if call not in reads and call[:3] != [c.OSASCRIPT, "-e", "get volume settings"]]
         self.assertEqual(actions, a.plan("away", None, STATE))
         # The fake helper reports an unlocked session, so the scene must not claim success.
         self.assertEqual(state["action"], {"name": "away", "reached": False})
@@ -172,9 +172,9 @@ class MediaTests(unittest.TestCase):
         runner = FakeRunner()
         original = runner.__call__
         def ignore_media(argv, timeout=5.0):
-            if argv[:2] == [c.HELPER, "media"]:
+            if argv[:5] == [c.OSASCRIPT, "-l", "JavaScript", c.NOWPLAYING, "send"]:
                 runner.calls.append(argv)
-                return ""
+                return '{"sent": 2}'
             return original(argv, timeout)
         state = a.apply("media_toggle", None, ignore_media, wait=0)
         self.assertFalse(state["action"]["reached"])

@@ -7,7 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from .commands import (CAFFEINATE, HELPER, OSASCRIPT, PMSET, STATE_DIR, InvalidAction, Unavailable, now, run,
+from .commands import (CAFFEINATE, HELPER, NOWPLAYING, OSASCRIPT, PMSET, STATE_DIR, InvalidAction, Unavailable, now, run,
                        write_json_atomic)
 from .state import read_state
 
@@ -93,6 +93,10 @@ def _media_precondition(state: dict) -> Optional[str]:
     return None if state["media"] is not None else MEDIA_NONE
 
 
+def _media_command(code: int) -> list:
+    return [OSASCRIPT, "-l", "JavaScript", NOWPLAYING, "send", str(code)]
+
+
 def _media_changed(field: str) -> Callable[[dict, dict, Any], bool]:
     def check(before: dict, after: dict, _value: Any) -> bool:
         if before["media"] is None or after["media"] is None:
@@ -120,11 +124,11 @@ ACTIONS = {
                          lambda s, v: s["brightness"] == v),
     "output": Action("text", lambda v, s: [[HELPER, "output", v]],
                      lambda s, v: bool(s["audio"]) and s["audio"]["default"] == v, 1.0, precondition=_output_precondition),
-    "media_toggle": Action("none", lambda _, s: [[HELPER, "media", "toggle"]], lambda s, _: s["media"] is not None, 1.5,
+    "media_toggle": Action("none", lambda _, s: [_media_command(2)], lambda s, _: s["media"] is not None, 1.5,
                            precondition=_media_precondition, changed=_media_changed("playing")),
-    "media_next": Action("none", lambda _, s: [[HELPER, "media", "next"]], lambda s, _: s["media"] is not None, 1.5,
+    "media_next": Action("none", lambda _, s: [_media_command(4)], lambda s, _: s["media"] is not None, 1.5,
                          precondition=_media_precondition, changed=_media_changed("title")),
-    "media_previous": Action("none", lambda _, s: [[HELPER, "media", "previous"]], lambda s, _: s["media"] is not None, 1.5,
+    "media_previous": Action("none", lambda _, s: [_media_command(5)], lambda s, _: s["media"] is not None, 1.5,
                              precondition=_media_precondition, changed=_media_changed("title")),
 }
 

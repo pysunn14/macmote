@@ -14,6 +14,7 @@ from typing import Any, Optional
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 HELPER = str(ROOT / "build" / "macctl")
+NOWPLAYING = str(Path(__file__).resolve().parent / "nowplaying.js")  # run by osascript, see the file
 STATE_DIR = Path.home() / ".local" / "state" / "macmote"
 
 OSASCRIPT = "/usr/bin/osascript"

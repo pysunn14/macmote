@@ -1,4 +1,3 @@
-import AppKit
 import CoreAudio
 import CoreGraphics
 import Foundation
@@ -7,7 +6,6 @@ import Foundation
 // - keyboard backlight: CoreBrightness KeyboardBrightnessClient (private)
 // - built-in display brightness: DisplayServices (private)
 // - lock screen: login.framework SACLockScreenImmediate (private)
-// - now playing and transport: MediaRemote (private), with media-key events as the fallback
 // - audio output devices: CoreAudio (public)
 // When a macOS update removes a private API, the command fails with the missing class or
 // symbol name instead of quietly doing nothing, and the server confirms every change by
@@ -189,54 +187,6 @@ enum AudioOutput {
     }
 }
 
-// MARK: - Media (MediaRemote, private; media keys as the fallback for commands)
-
-enum Media {
-    private static let handle = dlopen("/System/Library/PrivateFrameworks/MediaRemote.framework/MediaRemote", RTLD_NOW)
-
-    private static func symbol<T>(_ name: String, as type: T.Type) -> T? {
-        guard let handle = handle, let pointer = dlsym(handle, name) else { return nil }
-        return unsafeBitCast(pointer, to: type)
-    }
-
-    /// Title, artist and whether something is playing; nil when nothing reports.
-    static func state() -> Any {
-        typealias GetInfo = @convention(c) (DispatchQueue, @escaping ([String: Any]) -> Void) -> Void
-        typealias GetPlaying = @convention(c) (DispatchQueue, @escaping (Bool) -> Void) -> Void
-        guard let getInfo = symbol("MRMediaRemoteGetNowPlayingInfo", as: GetInfo.self),
-              let getPlaying = symbol("MRMediaRemoteGetNowPlayingApplicationIsPlaying", as: GetPlaying.self) else { return NSNull() }
-        var info: [String: Any] = [:]
-        var playing = false
-        let group = DispatchGroup()
-        group.enter(); getInfo(DispatchQueue.global()) { info = $0; group.leave() }
-        group.enter(); getPlaying(DispatchQueue.global()) { playing = $0; group.leave() }
-        _ = group.wait(timeout: .now() + 0.7)
-        guard let title = info["kMRMediaRemoteNowPlayingInfoTitle"] as? String, !title.isEmpty else { return NSNull() }
-        return ["title": title, "artist": info["kMRMediaRemoteNowPlayingInfoArtist"] as? String ?? "",
-                "album": info["kMRMediaRemoteNowPlayingInfoAlbum"] as? String ?? "", "playing": playing,
-                "elapsed": info["kMRMediaRemoteNowPlayingInfoElapsedTime"] as? Double ?? 0,
-                "duration": info["kMRMediaRemoteNowPlayingInfoDuration"] as? Double ?? 0]
-    }
-
-    private static func mediaKey(_ key: Int32) {
-        // NX_KEYTYPE_PLAY=16, NX_KEYTYPE_FAST=19, NX_KEYTYPE_REWIND=20: what the keyboard keys send.
-        for down in [true, false] {
-            let flags = NSEvent.ModifierFlags(rawValue: down ? 0xa00 : 0xb00)
-            let data1 = Int((key << 16) | ((down ? 0xa : 0xb) << 8))
-            NSEvent.otherEvent(with: .systemDefined, location: .zero, modifierFlags: flags, timestamp: 0, windowNumber: 0,
-                               context: nil, subtype: 8, data1: data1, data2: -1)?.cgEvent?.post(tap: .cghidEventTap)
-        }
-    }
-
-    static func send(_ command: String) throws {
-        typealias Send = @convention(c) (Int, AnyObject?) -> Bool
-        let commands: [String: (Int, Int32)] = ["toggle": (2, 16), "next": (4, 19), "previous": (5, 20)]   // (MRCommand, media key)
-        guard let (code, key) = commands[command] else { throw Failure(description: "usage: macctl media toggle | next | previous") }
-        if let send = symbol("MRMediaRemoteSendCommand", as: Send.self), send(code, nil) { return }
-        mediaKey(key)
-    }
-}
-
 func state() -> [String: Any] {
     var out: [String: Any] = [
         "displays": onlineDisplays().map {
@@ -244,7 +194,6 @@ func state() -> [String: Any] {
         },
         "locked": isLocked().map { $0 as Any } ?? NSNull(),
         "audio": AudioOutput.state(),
-        "media": Media.state(),
     ]
     do {
         out["keyboard"] = Double(try Keyboard().brightness())
@@ -282,11 +231,8 @@ do {
     case "output":
         guard arguments.count == 2 else { throw Failure(description: "usage: macctl output <device uid>") }
         try AudioOutput.setDefault(uid: arguments[1])
-    case "media":
-        guard arguments.count == 2 else { throw Failure(description: "usage: macctl media toggle | next | previous") }
-        try Media.send(arguments[1])
     default:
-        throw Failure(description: "usage: macctl state | keyboard <0-100> | brightness <0-100> | lock | output <uid> | media <toggle|next|previous>")
+        throw Failure(description: "usage: macctl state | keyboard <0-100> | brightness <0-100> | lock | output <uid>")
     }
     let data = try JSONSerialization.data(withJSONObject: state(), options: [.sortedKeys])
     FileHandle.standardOutput.write(data)

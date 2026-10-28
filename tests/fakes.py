@@ -23,7 +23,7 @@ BATTERY_TEXT = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1234)\t87%;
 
 AUDIO = {"default": "BuiltIn", "devices": [{"uid": "BuiltIn", "name": "MacBook Pro Speakers", "transport": "builtin"},
                                             {"uid": "DAC-1", "name": "USB DAC", "transport": "usb"}]}
-MEDIA = {"title": "Song A", "artist": "Band", "album": "Album", "playing": True, "elapsed": 42.0, "duration": 200.0}
+MEDIA = {"title": "Song A", "artist": "Band", "album": "Album", "app": "Music", "playing": True, "elapsed": 42.0, "duration": 200.0}
 TRACKS = ["Song A", "Song B"]
 
 
@@ -62,17 +62,20 @@ class FakeRunner:
         if argv == [c.HELPER, "state"]:
             helper = json.loads(self.helper)
             helper["audio"] = self.audio
-            helper["media"] = self.media
             return json.dumps(helper)
+        if argv == [c.OSASCRIPT, "-l", "JavaScript", c.NOWPLAYING]:
+            return json.dumps(self.media if self.media and self.media.get("title") else None)
         if argv[:2] == [c.HELPER, "output"]:
             if argv[2] not in [d["uid"] for d in self.audio["devices"]]:
                 raise c.ActionError("macctl failed (1): no output device with uid " + argv[2])
             self.audio["default"] = argv[2]
-        if argv[:2] == [c.HELPER, "media"] and self.media is not None:
-            if argv[2] == "toggle":
+        if argv[:5] == [c.OSASCRIPT, "-l", "JavaScript", c.NOWPLAYING, "send"] and self.media and self.media.get("title"):
+            code = argv[5]
+            if code == "2":
                 self.media["playing"] = not self.media["playing"]
             else:
                 index = TRACKS.index(self.media["title"])
-                self.media["title"] = TRACKS[(index + (1 if argv[2] == "next" else -1)) % len(TRACKS)]
+                self.media["title"] = TRACKS[(index + (1 if code == "4" else -1)) % len(TRACKS)]
                 self.media["elapsed"] = 0.0
+            return json.dumps({"sent": int(code)})
         return ""
