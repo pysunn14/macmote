@@ -8,8 +8,9 @@ shows the exact command, and lets you approve it with Face ID. The approval is a
 signature verified by a root-owned PAM module, so nothing running as your user can forge it.
 
 The everyday part is a Control Center style web page: display on/off, lock, "step away",
-volume and mute, built-in display brightness, keyboard backlight, battery. Add it to the Home
-Screen and it behaves like an app. The UI is English by default and switches to Korean on a
+volume and mute, built-in display brightness, keyboard backlight, battery, now playing with
+previous/play-pause/next, and the audio output device. Add it to the Home Screen and it behaves
+like an app. The UI is English by default and switches to Korean on a
 Korean phone (or with the footer button).
 
 ## How it fits together
@@ -30,6 +31,14 @@ sudo ──► pam_macmote.so (root) ──────────────�
 - `approve/` – the PAM module, the passkey enrollment tool, the Web Push crypto helper, and the
   test tools. All Swift, CryptoKit only.
 - `web/` – one HTML file plus a service worker for notifications.
+
+## Risky commands
+
+The relay flags `sudo` commands that erase disks, delete whole trees, change system protection
+or sudoers, pipe a download into a shell, touch system daemons or power the Mac off; the card
+turns red (amber for recursive permission changes, installers, network configuration, force
+kills, writes into system directories) and says why. This is advice for the person tapping, not
+a control: nothing is refused because of it, and a command can always be spelled around it.
 
 ## Security model
 
@@ -152,6 +161,8 @@ the phone and narrates each step; never use it for real authentication.
   refuses them with 409 instead.
 - Some USB DACs expose no mute control (`output muted` is `missing value`); mute is then done
   in software by driving the volume to 0 and restoring the remembered level.
+- Transport commands go through MediaRemote (private) and fall back to synthesised media-key
+  events; success is judged by the playing flag or the track actually changing.
 - Apple's push endpoint rejects VAPID tokens whose subject mentions `localhost`.
 - Passkey creation fails with `NotAllowedError` inside in-app browsers (KakaoTalk, etc.). Use Safari.
 

@@ -43,8 +43,11 @@ no maintained release branches.
 - **Logs contain full command lines.** Secrets passed on a `sudo` command line end up in
   `/var/log/macmote-pam.log` and `~/.local/state/macmote/server.log`. Both rotate
   (newsyslog and an in-process rotating handler), but rotated copies are kept.
-- **Private macOS APIs** back the keyboard backlight, brightness and lock features. They can
-  break with a macOS update; failures show up in `GET /api/state` under `errors`.
+- **Private macOS APIs** back the keyboard backlight, brightness, lock and now-playing
+  features. They can break with a macOS update; failures show up in `GET /api/state` under
+  `errors`.
+- **Risk labels are heuristics.** A red card means a pattern matched; a plain card does not
+  mean a command is safe.
 
 ## Out of scope
 
