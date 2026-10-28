@@ -1,5 +1,7 @@
 # Macmote
 
+[![CI](https://github.com/pysunn14/macmote/actions/workflows/ci.yml/badge.svg)](https://github.com/pysunn14/macmote/actions/workflows/ci.yml)
+
 A phone remote for your Mac over your tailnet, with one unusual feature: when you are away
 from the Mac and an AI coding agent (or anyone) runs `sudo`, your iPhone gets a notification,
 shows the exact command, and lets you approve it with Face ID. The approval is a passkey

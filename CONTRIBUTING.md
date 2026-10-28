@@ -6,7 +6,7 @@ Swift with system frameworks on the native side, one HTML page. Please keep it t
 ## Ground rules
 
 - **No third-party dependencies.** Python 3.9 standard library only (`/usr/bin/python3` from
-  the Command Line Tools); Swift with Foundation, CryptoKit, CoreImage, LocalAuthentication and
+  the Command Line Tools); Swift with Foundation, CryptoKit, LocalAuthentication and
   the like; no npm, no package managers.
 - **Observe, never assume.** Every action re-reads the state it changed and reports
   `action.reached`; the PAM module verifies signatures itself; the wizard checks `launchctl`,
