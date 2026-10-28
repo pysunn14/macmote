@@ -131,3 +131,55 @@ class SoftwareMuteTests(unittest.TestCase):
         runner = FakeRunner(fail={"osascript"})
         with self.assertRaises(c.Unavailable):
             a.apply("mute", True, runner, wait=0)
+
+
+class OutputDeviceTests(unittest.TestCase):
+    def test_switching_to_a_listed_device_is_observed(self):
+        runner = FakeRunner()
+        state = a.apply("output", "DAC-1", runner, wait=0)
+        self.assertIn([c.HELPER, "output", "DAC-1"], runner.calls)
+        self.assertEqual(state["audio"]["default"], "DAC-1")
+        self.assertEqual(state["action"], {"name": "output", "reached": True})
+
+    def test_unknown_device_is_refused_before_running_anything(self):
+        runner = FakeRunner()
+        with self.assertRaises(c.Unavailable):
+            a.apply("output", "nope", runner, wait=0)
+        self.assertNotIn([c.HELPER, "output", "nope"], runner.calls)
+
+    def test_value_must_be_a_string(self):
+        with self.assertRaises(c.InvalidAction):
+            a.plan("output", 7, STATE)
+
+
+class MediaTests(unittest.TestCase):
+    def test_toggle_is_judged_by_the_playing_flag_changing(self):
+        runner = FakeRunner()
+        state = a.apply("media_toggle", None, runner, wait=0)
+        self.assertIs(state["media"]["playing"], False)
+        self.assertEqual(state["action"], {"name": "media_toggle", "reached": True})
+
+    def test_next_is_judged_by_the_track_changing(self):
+        runner = FakeRunner()
+        state = a.apply("media_next", None, runner, wait=0)
+        self.assertEqual(state["media"]["title"], "Song B")
+        self.assertTrue(state["action"]["reached"])
+        state = a.apply("media_previous", None, runner, wait=0)
+        self.assertEqual(state["media"]["title"], "Song A")
+        self.assertTrue(state["action"]["reached"])
+
+    def test_a_command_that_changed_nothing_is_reported(self):
+        runner = FakeRunner()
+        original = runner.__call__
+        def ignore_media(argv, timeout=5.0):
+            if argv[:2] == [c.HELPER, "media"]:
+                runner.calls.append(argv)
+                return ""
+            return original(argv, timeout)
+        state = a.apply("media_toggle", None, ignore_media, wait=0)
+        self.assertFalse(state["action"]["reached"])
+
+    def test_nothing_playing_is_unavailable(self):
+        runner = FakeRunner(media={})  # the helper reports no now-playing item
+        with self.assertRaises(c.Unavailable):
+            a.apply("media_toggle", None, runner, wait=0)

@@ -38,6 +38,13 @@ function renderApprovals(items) {
       el.innerHTML = '<div class="cmd"></div><div class="meta"><span class="who"></span><span class="left"></span></div><div class="actions">'
         + '<button class="btn no"></button><button class="btn ok"></button></div>';
       el.querySelector('.cmd').textContent = item.command.join(' ');
+      if (item.risk) {
+        el.classList.add('risk-' + item.risk.level);
+        const warn = document.createElement('div');
+        warn.className = 'risk';
+        warn.textContent = (item.risk.level === 'high' ? '⚠︎ ' : '') + t('risk.' + item.risk.key);
+        el.insertBefore(warn, el.querySelector('.cmd'));
+      }
       el.querySelector('.btn.no').textContent = t('deny');
       el.querySelector('.btn.ok').textContent = t('approve');
       el.querySelector('.who').textContent = t('approve.meta', { parent: item.parent, ppid: item.ppid, cwd: item.cwd, user: item.user });

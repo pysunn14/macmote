@@ -74,3 +74,17 @@ class MuteModeTests(unittest.TestCase):
         state = s.read_state(FakeRunner(fail={"osascript"}))
         self.assertIsNone(state["mute_mode"])
         self.assertIsNone(state["muted"])
+
+
+class AudioAndMediaStateTests(unittest.TestCase):
+    def test_audio_devices_and_media_are_read(self):
+        state = s.read_state(FakeRunner())
+        self.assertEqual(state["audio"]["default"], "BuiltIn")
+        self.assertEqual([d["uid"] for d in state["audio"]["devices"]], ["BuiltIn", "DAC-1"])
+        self.assertEqual(state["media"]["title"], "Song A")
+        self.assertIs(state["media"]["playing"], True)
+
+    def test_missing_media_and_audio_are_none(self):
+        state = s.read_state(FakeRunner(media=None if False else {"title": ""}, audio={"default": None, "devices": "?"}))
+        self.assertIsNone(state["media"])
+        self.assertIsNone(state["audio"])

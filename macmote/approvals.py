@@ -16,6 +16,7 @@ import time
 from typing import Any, Callable, Optional
 
 from .commands import InvalidAction, now
+from .risk import assess
 
 KEEP_DECIDED = 600.0  # seconds a decided or expired item stays readable for late pollers
 MAX_TIMEOUT = 600
@@ -121,6 +122,8 @@ class Relay:
         item = _validated(spec["request"], body)
         item.update(id=secrets.token_urlsafe(12), kind=kind, status="pending", created_at=now(),
                     answer=None, decided_at=None)
+        if kind == "sudo":
+            item["risk"] = assess(item["command"])  # advisory: shown on the card, never enforced
         clock = self._clock()
         item["_deadline"] = clock + item["timeout"]
         with self._condition:

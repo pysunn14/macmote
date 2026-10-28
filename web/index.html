@@ -33,6 +33,10 @@
     <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
     <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2.5"/></symbol>
     <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M7.5 4.6a1 1 0 0 1 1.52-.85l11 7.4a1 1 0 0 1 0 1.7l-11 7.4a1 1 0 0 1-1.52-.85z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path fill="currentColor" d="M6.5 4.5h3.6a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H6.5a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1zm7.4 0h3.6a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-3.6a1 1 0 0 1-1-1v-13a1 1 0 0 1 1-1z"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path fill="currentColor" d="M5.5 5.5a1 1 0 0 1 2 0v13a1 1 0 0 1-2 0zM18.3 5.4a1 1 0 0 1 1.5.86v11.5a1 1 0 0 1-1.5.86L9.6 13a1 1 0 0 1 0-1.72z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 5.5a1 1 0 0 1 2 0v13a1 1 0 0 1-2 0zM5.7 5.4a1 1 0 0 0-1.5.86v11.5a1 1 0 0 0 1.5.86L14.4 13a1 1 0 0 0 0-1.72z"/></symbol>
     <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.3 2.4 5.7 12.9a.6.6 0 0 0 .49.95h4.75l-.95 7.1c-.08.62.72.93 1.08.42l7.5-10.6a.6.6 0 0 0-.49-.95h-4.75l1.05-7.05c.09-.62-.71-.92-1.08-.37z"/></symbol>
   </defs>
 </svg>
@@ -92,6 +96,21 @@
     <div class="glass slider" data-key="keyboard" role="slider" tabindex="0" data-i18n-aria="keyboard" aria-valuemin="0" aria-valuemax="100"><div class="fill"></div><span class="val">--</span><svg class="ic"><use href="#i-kbd"/></svg></div>
     <button class="glass tile" id="muteBtn" data-i18n-aria="mute"><svg class="ic"><use href="#i-mute"/></svg><span class="cap" id="muteCap" data-i18n="mute"></span></button>
     <button class="glass tile" id="kbdOffBtn" data-i18n-aria="keyboard.off"><svg class="ic"><use href="#i-kbd-off"/></svg><span class="cap" id="kbdCap" data-i18n="keyboard.off"></span></button>
+    <section class="glass wide4 media" id="media" data-i18n-aria="media">
+      <div class="np">
+        <div class="np-title" id="mediaTitle" data-i18n="media.none"></div>
+        <div class="np-sub" id="mediaSub"></div>
+      </div>
+      <div class="transport">
+        <button class="tbtn" id="prevBtn" data-i18n-aria="media.previous"><svg class="ic"><use href="#i-prev"/></svg></button>
+        <button class="tbtn big" id="playBtn" data-i18n-aria="media.toggle"><svg class="ic"><use id="playIcon" href="#i-play"/></svg></button>
+        <button class="tbtn" id="nextBtn" data-i18n-aria="media.next"><svg class="ic"><use href="#i-next"/></svg></button>
+      </div>
+    </section>
+    <section class="glass wide4 outputs" id="outputs" data-i18n-aria="output">
+      <div class="outputs-head"><svg class="ic"><use href="#i-speaker"/></svg><span data-i18n="output"></span></div>
+      <div class="chips" id="outputChips"></div>
+    </section>
   </div>
 
   <section class="glass settings" data-i18n-aria="settings">

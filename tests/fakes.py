@@ -21,15 +21,23 @@ AWAKE_HELPER_JSON = json.dumps({
 BATTERY_TEXT = "Now drawing from 'AC Power'\n -InternalBattery-0 (id=1234)\t87%; charging; 1:02 remaining present: true\n"
 
 
+AUDIO = {"default": "BuiltIn", "devices": [{"uid": "BuiltIn", "name": "MacBook Pro Speakers", "transport": "builtin"},
+                                            {"uid": "DAC-1", "name": "USB DAC", "transport": "usb"}]}
+MEDIA = {"title": "Song A", "artist": "Band", "album": "Album", "playing": True, "elapsed": 42.0, "duration": 200.0}
+TRACKS = ["Song A", "Song B"]
+
+
 class FakeRunner:
     """Records argv calls and answers state reads like the real commands do."""
 
-    def __init__(self, helper=HELPER_JSON, fail=None, volume=56, hardware_mute=None):
+    def __init__(self, helper=HELPER_JSON, fail=None, volume=56, hardware_mute=None, audio=None, media=None):
         self.calls = []
         self.helper = helper
         self.fail = fail or set()
         self.volume = volume
         self.hardware_mute = hardware_mute  # None mimics a device without a mute control
+        self.audio = json.loads(json.dumps(AUDIO)) if audio is None else audio
+        self.media = json.loads(json.dumps(MEDIA)) if media is None else media
 
     def volume_text(self):
         muted = "missing value" if self.hardware_mute is None else str(self.hardware_mute).lower()
@@ -52,5 +60,19 @@ class FakeRunner:
         if argv == [c.PMSET, "-g", "batt"]:
             return BATTERY_TEXT
         if argv == [c.HELPER, "state"]:
-            return self.helper
+            helper = json.loads(self.helper)
+            helper["audio"] = self.audio
+            helper["media"] = self.media
+            return json.dumps(helper)
+        if argv[:2] == [c.HELPER, "output"]:
+            if argv[2] not in [d["uid"] for d in self.audio["devices"]]:
+                raise c.ActionError("macctl failed (1): no output device with uid " + argv[2])
+            self.audio["default"] = argv[2]
+        if argv[:2] == [c.HELPER, "media"] and self.media is not None:
+            if argv[2] == "toggle":
+                self.media["playing"] = not self.media["playing"]
+            else:
+                index = TRACKS.index(self.media["title"])
+                self.media["title"] = TRACKS[(index + (1 if argv[2] == "next" else -1)) % len(TRACKS)]
+                self.media["elapsed"] = 0.0
         return ""

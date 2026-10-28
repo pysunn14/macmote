@@ -29,6 +29,11 @@ class CreateTests(unittest.TestCase):
         self.assertTrue(item["id"])
         self.assertIn("created_at", item)
 
+    def test_sudo_requests_carry_a_risk_assessment(self):
+        relay = ap.Relay()
+        self.assertEqual(relay.create("sudo", SUDO)["risk"], {"level": "high", "key": "delete-recursive"})
+        self.assertIsNone(relay.create("sudo", {**SUDO, "command": ["sudo", "ls"]})["risk"])
+
     def test_unknown_kind_is_rejected(self):
         with self.assertRaises(InvalidAction):
             ap.Relay().create("rm", SUDO)

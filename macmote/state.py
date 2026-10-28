@@ -29,7 +29,7 @@ def _percent_of(fraction: Optional[float]) -> Optional[int]:
 
 def read_state(run: Callable = run) -> dict:
     state: dict = {"volume": None, "muted": None, "mute_mode": None, "brightness": None, "keyboard": None,
-                   "displays_asleep": None, "locked": None, "battery": None, "errors": {}}
+                   "displays_asleep": None, "locked": None, "battery": None, "audio": None, "media": None, "errors": {}}
     errors = state["errors"]
     try:
         state["volume"], muted = parse_volume(run([OSASCRIPT, "-e", "get volume settings"]))
@@ -49,6 +49,15 @@ def read_state(run: Callable = run) -> dict:
         state["locked"] = helper.get("locked")
         displays = helper.get("displays") or []
         state["displays_asleep"] = all(d["asleep"] for d in displays) if displays else None
+        audio = helper.get("audio")
+        if isinstance(audio, dict) and isinstance(audio.get("devices"), list):
+            state["audio"] = {"default": audio.get("default"),
+                              "devices": [d for d in audio["devices"] if isinstance(d, dict) and d.get("uid")]}
+        media = helper.get("media")
+        if isinstance(media, dict) and media.get("title"):
+            state["media"] = {"title": media["title"], "artist": media.get("artist") or "", "album": media.get("album") or "",
+                              "playing": bool(media.get("playing")), "elapsed": float(media.get("elapsed") or 0),
+                              "duration": float(media.get("duration") or 0)}
         for field in ("keyboard", "brightness"):
             if helper.get(f"{field}_error"):
                 errors[field] = helper[f"{field}_error"]

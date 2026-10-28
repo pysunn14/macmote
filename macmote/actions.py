@@ -19,12 +19,15 @@ DEFAULT_UNMUTE_VOLUME = 25
 
 @dataclass(frozen=True)
 class Action:
-    kind: str  # "none", "percent" or "bool": the only value shapes accepted
+    kind: str  # "none", "percent", "bool" or "text": the only value shapes accepted
     steps: Callable[[Any, dict], list]  # argv lists to run, chosen from the value and the observed state
     expect: Callable[[dict, Any], bool]  # observed state that confirms the action took effect
     settle: float = 0.0  # display and lock changes land asynchronously, so keep re-reading this long
     precondition: Optional[Callable[[dict], Optional[str]]] = None  # reason the action cannot work now
     before: Optional[Callable[[Any, dict], None]] = None  # bookkeeping to do once the action is about to run
+    # For actions whose success is a change rather than a target value (play/pause, next track):
+    # given the state before and after, did it happen? Checked instead of `expect` when set.
+    changed: Optional[Callable[[dict, dict, Any], bool]] = None
 
 
 def _asleep(state: dict, _value: Any) -> bool:
@@ -78,6 +81,29 @@ def _mute_steps(mute: bool, state: dict) -> list:
     return [_set_volume(DEFAULT_UNMUTE_VOLUME if remembered is None else remembered)]
 
 
+OUTPUT_UNKNOWN = "No output device with that id is connected"
+MEDIA_NONE = "Nothing is playing that can be controlled"
+
+
+def _output_precondition(state: dict) -> Optional[str]:
+    return None if state["audio"] and state["audio"]["devices"] else OUTPUT_UNKNOWN
+
+
+def _media_precondition(state: dict) -> Optional[str]:
+    return None if state["media"] is not None else MEDIA_NONE
+
+
+def _media_changed(field: str) -> Callable[[dict, dict, Any], bool]:
+    def check(before: dict, after: dict, _value: Any) -> bool:
+        if before["media"] is None or after["media"] is None:
+            return False
+        if field == "playing":
+            return before["media"]["playing"] != after["media"]["playing"]
+        # A track change shows as a new title, or the same title restarted (single-track loops).
+        return before["media"]["title"] != after["media"]["title"] or after["media"]["elapsed"] < before["media"]["elapsed"]
+    return check
+
+
 ACTIONS = {
     "display_off": Action("none", lambda _, s: [[PMSET, "displaysleepnow"]], _asleep, 2.0),
     "display_on": Action("none", lambda _, s: [[CAFFEINATE, "-u", "-t", "1"]],
@@ -92,6 +118,14 @@ ACTIONS = {
                        precondition=_keyboard_needs_display),
     "brightness": Action("percent", lambda v, s: [[HELPER, "brightness", str(v)]],
                          lambda s, v: s["brightness"] == v),
+    "output": Action("text", lambda v, s: [[HELPER, "output", v]],
+                     lambda s, v: bool(s["audio"]) and s["audio"]["default"] == v, 1.0, precondition=_output_precondition),
+    "media_toggle": Action("none", lambda _, s: [[HELPER, "media", "toggle"]], lambda s, _: s["media"] is not None, 1.5,
+                           precondition=_media_precondition, changed=_media_changed("playing")),
+    "media_next": Action("none", lambda _, s: [[HELPER, "media", "next"]], lambda s, _: s["media"] is not None, 1.5,
+                         precondition=_media_precondition, changed=_media_changed("title")),
+    "media_previous": Action("none", lambda _, s: [[HELPER, "media", "previous"]], lambda s, _: s["media"] is not None, 1.5,
+                             precondition=_media_precondition, changed=_media_changed("title")),
 }
 
 _ACTION_LOCK = threading.Lock()
@@ -105,6 +139,10 @@ def _validate(kind: str, value: Any) -> Any:
     if kind == "bool":
         if type(value) is not bool:
             raise InvalidAction("value must be true or false")
+        return value
+    if kind == "text":
+        if not isinstance(value, str) or not 0 < len(value) <= 256:
+            raise InvalidAction("value must be a string of at most 256 characters")
         return value
     # type() rather than isinstance(): bool is an int subclass and must not pass as 0 or 1.
     if type(value) is not int or not 0 <= value <= 100:
@@ -135,12 +173,16 @@ def apply(action: str, value: Any, run: Callable = run, wait: Optional[float] = 
                 raise Unavailable(reason)
         if spec.before is not None:
             spec.before(value, state)
+        if action == "output" and value not in [d["uid"] for d in state["audio"]["devices"]]:
+            raise Unavailable(OUTPUT_UNKNOWN)
+        before = state
         for argv in spec.steps(value, state):
             run(argv)
+        reached = (lambda s: spec.changed(before, s, value)) if spec.changed else (lambda s: spec.expect(s, value))
         state = read_state(run)
         deadline = time.monotonic() + budget
-        while not spec.expect(state, value) and time.monotonic() < deadline:
+        while not reached(state) and time.monotonic() < deadline:
             time.sleep(0.15)
             state = read_state(run)
-    state["action"] = {"name": action, "reached": bool(spec.expect(state, value))}
+    state["action"] = {"name": action, "reached": bool(reached(state))}
     return state

@@ -4,7 +4,8 @@
 const BATTERY = { 'charging': 'bat.charging', 'charged': 'bat.charged', 'discharging': 'bat.discharging', 'AC attached': 'bat.attached', 'finishing charge': 'bat.finishing' };
 const SOURCE = { 'AC Power': 'src.ac', 'Battery Power': 'src.battery', 'UPS Power': 'src.ups' };
 const DONE = { display_off: 'done.display_off', display_on: 'done.display_on', lock: 'done.lock', away: 'done.away', mute: null, keyboard: 'done.keyboard' };
-const UNREACHED = { display_off: 'unreached.display_off', display_on: 'unreached.display_on', lock: 'unreached.lock', away: 'unreached.away' };
+const UNREACHED = { display_off: 'unreached.display_off', display_on: 'unreached.display_on', lock: 'unreached.lock', away: 'unreached.away',
+  media_toggle: 'media.nochange', media_next: 'media.nochange', media_previous: 'media.nochange', output: 'output.unreached' };
 
 let state = null;
 const busy = new Set();
@@ -139,8 +140,52 @@ function render(s) {
   $('seen').textContent = clock.format(new Date());
   $('beat').textContent = s.server && s.server.heartbeat_at ? clock.format(new Date(s.server.heartbeat_at)) : '--';
   const errors = Object.entries(s.errors || {});
+  renderMedia(s.media);
+  renderOutputs(s.audio);
+
   $('errs').hidden = errors.length === 0;
   $('errs').textContent = errors.map(([key, message]) => `${t('field.' + key) === 'field.' + key ? key : t('field.' + key)}: ${message}`).join('\n');
+}
+
+function renderMedia(media) {
+  const box = $('media');
+  box.classList.toggle('idle', media === null);
+  if (media === null) {
+    $('mediaTitle').textContent = t('media.none');
+    $('mediaSub').textContent = '';
+    $('playIcon').setAttribute('href', '#i-play');
+    return;
+  }
+  $('mediaTitle').textContent = media.title;
+  $('mediaSub').textContent = [media.artist, media.album].filter(Boolean).join(' · ');
+  $('playIcon').setAttribute('href', media.playing ? '#i-pause' : '#i-play');
+}
+
+let outputsKey = '';
+function renderOutputs(audio) {
+  const box = $('outputs');
+  const devices = audio ? audio.devices : [];
+  box.hidden = devices.length < 2;   // a single device offers no choice
+  const key = JSON.stringify([devices.map((d) => d.uid), audio && audio.default, LANG]);
+  if (key === outputsKey) return;
+  outputsKey = key;
+  const chips = $('outputChips');
+  chips.innerHTML = '';
+  const ordered = [...devices].sort((a, b) => (b.uid === audio.default) - (a.uid === audio.default));
+  for (const device of ordered) {
+    const chip = document.createElement('button');
+    chip.className = 'chip' + (audio.default === device.uid ? ' on' : '');
+    const transport = t('transport.' + device.transport);
+    chip.textContent = transport && transport !== 'transport.' + device.transport ? `${device.name} · ${transport}` : device.name;
+    chip.addEventListener('click', async () => {
+      if (chip.classList.contains('on') || chip.classList.contains('wait')) return;
+      chip.classList.add('wait');
+      const result = await act('output', device.uid, true);
+      chip.classList.remove('wait');
+      if (result && result.action.reached) toast(t('output.switched'));
+    });
+    chips.appendChild(chip);
+  }
 }
 
 function slider(el) {
@@ -236,6 +281,15 @@ $('muteBtn').addEventListener('click', () => press('muteBtn', async () => {
   if (!state || state.muted === null) { toast(t('mute.none'), true); return; }
   await act('mute', !state.muted);
 }));
+for (const [id, action] of [['playBtn', 'media_toggle'], ['nextBtn', 'media_next'], ['prevBtn', 'media_previous']]) {
+  $(id).addEventListener('click', async () => {
+    if (!state || state.media === null) { toast(t('media.unavailable'), true); return; }
+    if ($('media').classList.contains('wait')) return;
+    $('media').classList.add('wait');
+    await act(action, undefined, true);
+    $('media').classList.remove('wait');
+  });
+}
 $('kbdOffBtn').addEventListener('click', () => press('kbdOffBtn', async () => {
   if (state && state.displays_asleep === true) { toast(t('keyboard.blocked'), true); return; }
   if (!state || state.keyboard === null) return;

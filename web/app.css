@@ -173,3 +173,41 @@ button.pill[data-on="1"] { background: var(--on); color: var(--on-ink); }
 .steps li.now { color: var(--text); }
 .steps li.now .n { background: var(--on); color: var(--on-ink); }
 .share-ic { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; margin: 0 2px; }
+
+/* risky sudo commands: colour the card, say why, and make the approve button less inviting */
+.approval.risk-high { margin: 0 -6px; padding: 10px 6px; border-radius: 14px; background: rgba(255, 69, 58, .14); box-shadow: inset 0 0 0 1.5px rgba(255, 69, 58, .7); }
+.approval.risk-medium { margin: 0 -6px; padding: 10px 6px; border-radius: 14px; background: rgba(255, 159, 10, .12); box-shadow: inset 0 0 0 1px rgba(255, 159, 10, .6); }
+.approval .risk { margin-bottom: 6px; font-size: 13px; font-weight: 700; }
+.approval.risk-high .risk { color: #ff6b61; }
+.approval.risk-medium .risk { color: #ffb340; }
+.approval.risk-high .btn.ok { background: rgba(255, 255, 255, .14); color: var(--text); }
+.approval.risk-high .btn.no { background: var(--red); color: #fff; }
+
+/* now playing + transport, full width */
+.wide4 { grid-column: span 4; }
+.media { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px 0 16px; }
+.media .np { min-width: 0; }
+.np-title { font-size: 15px; font-weight: 650; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.np-sub { margin-top: 2px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.media.idle .np-title { color: var(--muted); font-weight: 600; }
+.transport { display: flex; align-items: center; gap: 4px; flex: none; }
+.tbtn { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; color: var(--text); background: transparent;
+  transition: transform .2s var(--ease), background .2s; }
+.tbtn .ic { width: 22px; height: 22px; }
+.tbtn.big { width: 50px; height: 50px; background: rgba(255, 255, 255, .14); }
+.tbtn.big .ic { width: 26px; height: 26px; }
+.tbtn:active { transform: scale(.9); }
+.media.idle .tbtn { opacity: .4; }
+.media.wait .tbtn.big { animation: pulse 1s var(--ease) infinite; }
+
+/* output device chips */
+.outputs { padding: 12px 16px; display: flex; flex-direction: column; gap: 9px; justify-content: center; }
+.outputs-head { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.outputs-head .ic { width: 15px; height: 15px; }
+.chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 0 16px; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; padding: 8px 13px; border-radius: 999px; font-size: 13px; font-weight: 650; color: var(--text);
+  background: rgba(255, 255, 255, .14); white-space: nowrap; transition: transform .2s var(--ease); }
+.chip:active { transform: scale(.95); }
+.chip.on { background: var(--on); color: var(--on-ink); }
+.chip.wait { animation: pulse 1s var(--ease) infinite; }
