@@ -80,9 +80,44 @@ expect("assertion signed by another key is refused", { _ = try verify(try assert
 expect("assertion from an unknown credential is refused", { _ = try verify(try assertion(challenge: c2, credentialId: base64url(randomBytes(16))), challenge: c2, store: store) }, toFailWith: "unknown credential")
 expect("webauthn.create used as an assertion is refused", { _ = try verify(try assertion(challenge: c2, type: "webauthn.create"), challenge: c2, store: store) }, toFailWith: "type")
 
-// QR: the symbol CoreImage draws must decode back to the same text, and the terminal rendering
-// must keep the module grid (checked by rebuilding the grid from the half-block characters).
-expect("QR code round trip") {
+// QR: the symbol CoreImage draws must carry the three finder patterns a QR code always has, the
+// terminal rendering must keep the module grid (rebuilt from the half-block characters), and the
+// symbol must decode back to the same text. Decoding uses Vision, which does not work inside
+// GitHub's macOS virtual machines, so `--skip-vision` (set by scripts/ci.sh under CI) leaves that
+// part out and says so; the structural checks still prove a real symbol was drawn.
+let skipVision = CommandLine.arguments.contains("--skip-vision")
+expect("QR code structure and terminal rendering") {
+    let link = "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp"
+    let grid = try QRCode.modules(link)
+    let size = grid.count
+    guard size >= 21 else { throw Failure(description: "grid too small: \(size)") }
+    // CoreImage adds a one-module quiet zone; a finder pattern is a 7x7 ring (dark, light, dark).
+    func finder(at ox: Int, _ oy: Int) -> Bool {
+        for y in 0..<7 { for x in 0..<7 {
+            let ring = max(abs(x - 3), abs(y - 3))   // 0..3 from the centre: dark core, light ring, dark border
+            let dark = ring == 0 || ring == 1 || ring == 3
+            if grid[oy + y][ox + x] != dark { return false }
+        } }
+        return true
+    }
+    let inset = 1
+    guard finder(at: inset, inset), finder(at: size - 7 - inset, inset), finder(at: inset, size - 7 - inset) else {
+        throw Failure(description: "finder patterns missing; CoreImage did not draw a QR symbol")
+    }
+    let lines = QRCode.terminalLines(grid, quiet: 0)
+    var rebuilt = [[Bool]](repeating: [Bool](repeating: false, count: size), count: size)
+    for (row, line) in lines.enumerated() {
+        for (column, character) in line.enumerated() {
+            let top = character == "▄" || character == " ", bottom = character == "▀" || character == " "
+            if row * 2 < size { rebuilt[row * 2][column] = top }
+            if row * 2 + 1 < size { rebuilt[row * 2 + 1][column] = bottom }
+        }
+    }
+    guard rebuilt == grid else { throw Failure(description: "terminal rendering lost modules") }
+}
+if skipVision {
+    print("skip QR code decodes with Vision (--skip-vision: not available on CI virtual machines)")
+} else { expect("QR code decodes with Vision") {
     let link = "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp"
     let grid = try QRCode.modules(link)
     let size = grid.count
@@ -101,17 +136,7 @@ expect("QR code round trip") {
     try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
     guard let payload = request.results?.first?.payloadStringValue else { throw Failure(description: "QR not detected") }
     guard payload == link else { throw Failure(description: "decoded \(payload)") }
-    let lines = QRCode.terminalLines(grid, quiet: 0)
-    var rebuilt = [[Bool]](repeating: [Bool](repeating: false, count: size), count: size)
-    for (row, line) in lines.enumerated() {
-        for (column, character) in line.enumerated() {
-            let top = character == "▄" || character == " ", bottom = character == "▀" || character == " "
-            if row * 2 < size { rebuilt[row * 2][column] = top }
-            if row * 2 + 1 < size { rebuilt[row * 2 + 1][column] = bottom }
-        }
-    }
-    guard rebuilt == grid else { throw Failure(description: "terminal rendering lost modules") }
-}
+} }
 
 print(failures == 0 ? "selftest passed" : "selftest FAILED (\(failures))")
 exit(failures == 0 ? 0 : 1)

@@ -20,7 +20,9 @@ step "python tests"
 /usr/bin/python3 -m unittest discover -s tests -t . -v 2>&1 | tail -3
 
 step "passkey and QR self-test"
-build/passkey-selftest
+# Vision's barcode detector does not run inside GitHub's macOS virtual machines; the structural
+# QR checks still run there, and the decode runs on real Macs.
+if [ "${CI:-}" = "true" ]; then build/passkey-selftest --skip-vision; else build/passkey-selftest; fi
 
 step "page syntax"
 for file in web/*.js; do node --check "$file"; done
