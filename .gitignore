@@ -1,0 +1,5 @@
+build/
+*.tmp
+.DS_Store
+__pycache__/
+.private-patterns

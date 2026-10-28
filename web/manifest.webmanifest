@@ -1,0 +1,13 @@
+{
+  "name": "Mac Remote",
+  "short_name": "Mac Remote",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#05050a",
+  "theme_color": "#05050a",
+  "icons": [
+    { "src": "icon-180.png?v=2", "sizes": "180x180", "type": "image/png" },
+    { "src": "icon-512.png?v=2", "sizes": "512x512", "type": "image/png" }
+  ]
+}

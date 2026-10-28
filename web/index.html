@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mac Remote">
+<meta name="theme-color" content="#05050a">
+<meta name="color-scheme" content="dark">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="180x180" href="icon-180.png?v=2">
+<link rel="apple-touch-icon" href="icon-180.png?v=2">
+<title>Mac Remote</title>
+<style>
+:root {
+  --pad: 18px;
+  --gap: 14px;
+  --w: min(100vw, 440px);
+  --u: calc((var(--w) - 2 * var(--pad) - 3 * var(--gap)) / 4);
+  --r: 26px;
+  --text: #fff;
+  --muted: rgba(255, 255, 255, .66);
+  --faint: rgba(255, 255, 255, .4);
+  --on: rgba(255, 255, 255, .95);
+  --on-ink: #0d0d14;
+  --green: #32d74b;
+  --red: #ff453a;
+  --orange: #ff9f0a;
+  --indigo: #5e5ce6;
+  --ease: cubic-bezier(.2, .9, .25, 1);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  background: #05050a;
+  color: var(--text);
+  font: 15px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Apple SD Gothic Neo", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+.wall { position: fixed; inset: -25%; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(36% 28% at 20% 18%, rgba(94, 92, 230, .9), transparent 70%),
+    radial-gradient(28% 24% at 84% 24%, rgba(255, 55, 125, .5), transparent 70%),
+    radial-gradient(40% 32% at 72% 76%, rgba(10, 132, 255, .65), transparent 70%),
+    radial-gradient(32% 26% at 16% 84%, rgba(48, 209, 160, .38), transparent 70%);
+  filter: blur(36px) saturate(150%);
+  animation: drift 28s var(--ease) infinite alternate; }
+.veil { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(120% 80% at 50% 0%, transparent 35%, rgba(0, 0, 0, .55)); }
+@keyframes drift { to { transform: translate3d(-4%, 3%, 0) rotate(7deg) scale(1.08); } }
+@media (prefers-reduced-motion: reduce) { .wall { animation: none; } }
+
+.app { position: relative; z-index: 1; width: var(--w); margin: 0 auto;
+  padding: max(22px, env(safe-area-inset-top)) var(--pad) max(30px, env(safe-area-inset-bottom)); }
+header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 10px 2px 22px; }
+.date { font-size: 13px; font-weight: 600; color: var(--muted); }
+h1 { margin: 3px 0 0; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -.025em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: calc(var(--w) - 150px); }
+.conn { flex: none; display: flex; align-items: center; gap: 7px; padding: 8px 13px; border-radius: 999px;
+  font-size: 13px; font-weight: 600; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); transition: background .3s, box-shadow .3s; }
+.conn.ok .dot { background: var(--green); box-shadow: 0 0 10px rgba(50, 215, 75, .85); }
+.conn.bad .dot { background: var(--red); box-shadow: 0 0 10px rgba(255, 69, 58, .85); }
+
+.grid { display: grid; grid-template-columns: repeat(4, var(--u)); grid-auto-rows: var(--u); gap: var(--gap); }
+.glass { position: relative; isolation: isolate; border-radius: var(--r); overflow: hidden;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .05));
+  -webkit-backdrop-filter: blur(28px) saturate(175%);
+  backdrop-filter: blur(28px) saturate(175%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 16px 36px -18px rgba(0, 0, 0, .75); }
+.glass::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 3;
+  background: linear-gradient(150deg, rgba(255, 255, 255, .55), rgba(255, 255, 255, .08) 35%, rgba(255, 255, 255, 0) 60%, rgba(255, 255, 255, .2));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude; }
+button { font: inherit; color: inherit; border: 0; padding: 0; cursor: pointer; touch-action: manipulation; }
+.ic { width: 26px; height: 26px; flex: none; }
+
+/* toggles */
+.tile { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px;
+  transition: transform .4s var(--ease), background .25s, color .25s; }
+.tile:active, .wide:active { transform: scale(.93); }
+.tile .cap { font-size: 11px; font-weight: 600; color: var(--muted); transition: color .25s; }
+.tile.on { background: var(--on); color: var(--on-ink); }
+.tile.on .cap { color: rgba(13, 13, 20, .6); }
+.tile.on.alert { color: var(--red); }
+.tile.na { opacity: .42; }
+.tile.wait .ic, .wide.wait .badge { animation: pulse 1s var(--ease) infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+/* away scene */
+.wide { grid-column: span 2; display: flex; align-items: center; gap: 12px; padding: 0 16px; text-align: left;
+  transition: transform .4s var(--ease); }
+.badge { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: linear-gradient(145deg, #7d7aff, var(--indigo)); box-shadow: 0 6px 16px -6px rgba(94, 92, 230, .9); }
+.badge .ic { width: 20px; height: 20px; color: #fff; }
+.wide b { display: block; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+.wide small { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+
+/* battery */
+.battery { grid-column: span 2; grid-row: span 2; padding: 16px 16px 15px; display: flex; flex-direction: column; }
+.bat-top { display: flex; justify-content: space-between; align-items: flex-start; }
+.ring { position: relative; width: 54px; height: 54px; }
+.ring .gauge { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 5; }
+.ring .track { stroke: rgba(255, 255, 255, .14); }
+.ring .arc { stroke: var(--green); stroke-linecap: round; transition: stroke-dasharray .6s var(--ease), stroke .3s; }
+.ring .ic { position: absolute; inset: 0; margin: auto; width: 22px; height: 22px; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; border-radius: 999px; font-size: 11px; font-weight: 650;
+  background: rgba(255, 255, 255, .12); white-space: nowrap; }
+.chip .ic { width: 12px; height: 12px; }
+.chip.charging { background: rgba(50, 215, 75, .2); color: #8ef59c; }
+.bat-num { margin-top: auto; font-size: 44px; font-weight: 600; letter-spacing: -.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+.bat-num small { font-size: 20px; font-weight: 600; margin-left: 2px; color: var(--muted); letter-spacing: 0; }
+.bat-sub { margin-top: 6px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* vertical sliders */
+.slider { grid-row: span 2; touch-action: none; cursor: ns-resize; outline: none; }
+.slider:focus-visible { box-shadow: 0 0 0 3px rgba(10, 132, 255, .8); }
+.fill { position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--v, 0) * 1%); background: var(--on); z-index: 1;
+  transition: height .25s var(--ease); }
+.slider.drag .fill { transition: none; }
+.slider .val { position: absolute; top: 13px; left: 0; right: 0; z-index: 2; text-align: center; font-size: 13px; font-weight: 650;
+  font-variant-numeric: tabular-nums; color: var(--muted); transition: color .2s; }
+.slider .ic { position: absolute; left: 0; right: 0; bottom: 17px; margin: auto; z-index: 2; color: #fff; transition: color .2s; }
+.slider.lit .ic { color: #3a3a44; }
+.slider.top .val { color: rgba(13, 13, 20, .55); }
+.slider.na { opacity: .42; cursor: default; }
+.slider.drag { transform: scale(1.02); }
+.slider { transition: transform .35s var(--ease); }
+
+/* footer */
+.foot { margin-top: var(--gap); padding: 13px 16px; border-radius: 20px; font-size: 12px; color: var(--muted); }
+.foot .row { display: flex; justify-content: space-between; gap: 12px; }
+.foot .row + .row { margin-top: 5px; }
+.foot b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.errs { margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255, 255, 255, .12); color: #ffb4ad; line-height: 1.45;
+  -webkit-user-select: text; user-select: text; word-break: break-word; }
+
+/* sudo approvals and passkey enrollment */
+.approvals { margin-bottom: var(--gap); padding: 14px 16px; border-radius: 20px; }
+.approvals h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; color: var(--muted); letter-spacing: .02em; }
+.approval + .approval { margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, .12); }
+.approval .cmd { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; font-weight: 600; line-height: 1.4;
+  word-break: break-all; -webkit-user-select: text; user-select: text; }
+.approval .meta { margin-top: 5px; font-size: 12px; color: var(--muted); line-height: 1.5; word-break: break-all; }
+.approval .meta b { color: var(--text); font-weight: 600; }
+.actions { display: flex; gap: 10px; margin-top: 11px; }
+.btn { flex: 1; padding: 12px 10px; border-radius: 14px; font-size: 15px; font-weight: 650; background: rgba(255, 255, 255, .14);
+  transition: transform .2s var(--ease), opacity .2s; }
+.btn:active { transform: scale(.96); }
+.btn.ok { background: var(--on); color: var(--on-ink); }
+.btn.no { color: #ffc2bc; }
+.btn[disabled] { opacity: .45; }
+.code { width: 100%; box-sizing: border-box; margin-top: 10px; padding: 12px 14px; border: 0; border-radius: 14px; font: inherit;
+  font-size: 22px; font-weight: 650; letter-spacing: .25em; text-align: center; color: var(--text); background: rgba(0, 0, 0, .28); outline: none; }
+.foot .link { color: var(--text); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.foot button.small { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 650; background: rgba(255, 255, 255, .14); }
+
+.toast { position: fixed; left: 50%; bottom: max(26px, env(safe-area-inset-bottom)); z-index: 10; max-width: calc(100vw - 32px);
+  padding: 12px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; text-align: center;
+  opacity: 0; pointer-events: none; transform: translate(-50%, 24px) scale(.96); transition: transform .5s var(--ease), opacity .3s; }
+.toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.toast.err { color: #ffc2bc; }
+</style>
+</head>
+<body>
+<div class="wall"></div><div class="veil"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-display" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.75" y="4" width="18.5" height="12.5" rx="2.4"/><path d="M8.5 20.25h7M12 16.5v3.75"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.75" y="10.5" width="14.5" height="10.25" rx="2.8"/><path d="M8 10.5V7.9a4 4 0 0 1 8 0v2.6"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.75" y="10.5" width="14.5" height="10.25" rx="2.8"/><path d="M8 10.5V7.9a4 4 0 0 1 7.7-1.6"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path fill="currentColor" d="M20.3 14.7a8.3 8.3 0 0 1-11-11 .6.6 0 0 0-.8-.75A9.2 9.2 0 1 0 21.05 15.5a.6.6 0 0 0-.75-.8z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.1M12 19.3v2.1M2.6 12h2.1M19.3 12h2.1M5.35 5.35l1.5 1.5M17.15 17.15l1.5 1.5M5.35 18.65l1.5-1.5M17.15 6.85l1.5-1.5"/></symbol>
+    <symbol id="i-speaker" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M3.4 9.3A1.3 1.3 0 0 1 4.7 8h2.75l4.3-3.65a.75.75 0 0 1 1.25.57v14.16a.75.75 0 0 1-1.25.57L7.45 16H4.7a1.3 1.3 0 0 1-1.3-1.3z"/><path d="M16.2 9.1a4.2 4.2 0 0 1 0 5.8M18.9 6.4a8 8 0 0 1 0 11.2"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M3.4 9.3A1.3 1.3 0 0 1 4.7 8h2.75l4.3-3.65a.75.75 0 0 1 1.25.57v14.16a.75.75 0 0 1-1.25.57L7.45 16H4.7a1.3 1.3 0 0 1-1.3-1.3z"/><path d="M16.4 9.6l4.8 4.8M21.2 9.6l-4.8 4.8"/></symbol>
+    <symbol id="i-kbd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.75" y="11.25" width="18.5" height="9" rx="2.2"/><path d="M6.6 14.6h.01M10.2 14.6h.01M13.8 14.6h.01M17.4 14.6h.01M8.2 17.3h7.6M12 3.4v2.6M7.1 5.3l1.35 1.7M16.9 5.3l-1.35 1.7"/></symbol>
+    <symbol id="i-kbd-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.75" y="8.5" width="18.5" height="10" rx="2.2"/><path d="M6.6 12.2h.01M10.2 12.2h.01M13.8 12.2h.01M17.4 12.2h.01M8.2 15.2h7.6M3.5 3.5l17 17"/></symbol>
+    <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.6" y="5.2" width="14.8" height="10" rx="1.7"/><path d="M2.6 18.6h18.8"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.3 2.4 5.7 12.9a.6.6 0 0 0 .49.95h4.75l-.95 7.1c-.08.62.72.93 1.08.42l7.5-10.6a.6.6 0 0 0-.49-.95h-4.75l1.05-7.05c.09-.62-.71-.92-1.08-.37z"/></symbol>
+  </defs>
+</svg>
+
+<main class="app">
+  <header>
+    <div>
+      <div class="date" id="date">&nbsp;</div>
+      <h1 id="name">Mac</h1>
+    </div>
+    <div class="conn glass" id="conn"><span class="dot"></span><span id="connText" data-i18n="conn.connecting"></span></div>
+  </header>
+
+  <section class="glass approvals" id="approvals" hidden data-i18n-aria="approvals.title">
+    <h2 data-i18n="approvals.title"></h2>
+    <div id="approvalList"></div>
+  </section>
+
+  <section class="glass approvals" id="enroll" hidden data-i18n-aria="enroll.title">
+    <h2 data-i18n="enroll.title"></h2>
+    <div class="approval">
+      <div class="meta"><span data-i18n="enroll.help"></span> <b id="enrollUser"></b></div>
+      <input class="code" id="enrollCode" inputmode="numeric" pattern="[0-9]*" maxlength="6" data-i18n-placeholder="enroll.code" autocomplete="one-time-code">
+      <div class="actions"><button class="btn ok" id="enrollBtn" data-i18n="enroll.button"></button></div>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section class="glass battery" data-i18n-aria="battery">
+      <div class="bat-top">
+        <div class="ring">
+          <svg class="gauge" viewBox="0 0 64 64" aria-hidden="true"><circle class="track" cx="32" cy="32" r="27"/><circle class="arc" id="batArc" cx="32" cy="32" r="27" pathLength="100" stroke-dasharray="0 100"/></svg>
+          <svg class="ic"><use href="#i-laptop"/></svg>
+        </div>
+        <span class="chip" id="batChip" hidden><svg class="ic"><use href="#i-bolt"/></svg><span id="batChipText"></span></span>
+      </div>
+      <div class="bat-num"><span id="batPct">--</span><small>%</small></div>
+      <div class="bat-sub" id="batSub" data-i18n="battery.reading"></div>
+    </section>
+
+    <button class="glass tile" id="displayBtn" data-i18n-aria="display.aria"><svg class="ic"><use href="#i-display"/></svg><span class="cap" id="displayCap" data-i18n="display"></span></button>
+    <button class="glass tile" id="lockBtn" data-i18n-aria="lock.aria"><svg class="ic"><use id="lockIcon" href="#i-unlock"/></svg><span class="cap" id="lockCap" data-i18n="lock"></span></button>
+    <button class="glass wide" id="awayBtn" data-i18n-aria="away.aria"><span class="badge"><svg class="ic"><use href="#i-moon"/></svg></span><span><b data-i18n="away"></b><small data-i18n="away.sub"></small></span></button>
+
+    <div class="glass slider" data-key="brightness" role="slider" tabindex="0" data-i18n-aria="brightness" aria-valuemin="0" aria-valuemax="100"><div class="fill"></div><span class="val">--</span><svg class="ic"><use href="#i-sun"/></svg></div>
+    <div class="glass slider" data-key="volume" role="slider" tabindex="0" data-i18n-aria="volume" aria-valuemin="0" aria-valuemax="100"><div class="fill"></div><span class="val">--</span><svg class="ic"><use href="#i-speaker"/></svg></div>
+    <div class="glass slider" data-key="keyboard" role="slider" tabindex="0" data-i18n-aria="keyboard" aria-valuemin="0" aria-valuemax="100"><div class="fill"></div><span class="val">--</span><svg class="ic"><use href="#i-kbd"/></svg></div>
+    <button class="glass tile" id="muteBtn" data-i18n-aria="mute"><svg class="ic"><use href="#i-mute"/></svg><span class="cap" id="muteCap" data-i18n="mute"></span></button>
+    <button class="glass tile" id="kbdOffBtn" data-i18n-aria="keyboard.off"><svg class="ic"><use href="#i-kbd-off"/></svg><span class="cap" id="kbdCap" data-i18n="keyboard.off"></span></button>
+  </div>
+
+  <section class="glass foot" data-i18n-aria="foot">
+    <div class="row"><span data-i18n="foot.seen"></span><b id="seen">--</b></div>
+    <div class="row"><span data-i18n="foot.beat"></span><b id="beat">--</b></div>
+    <div class="row" id="pushRow"><span data-i18n="foot.push"></span><button class="small" id="pushBtn" data-i18n="push.checking"></button></div>
+    <div class="row" id="secureRow" hidden><span data-i18n="foot.secure"></span><a class="link" id="secureLink" href="#" data-i18n="foot.secure.link"></a></div>
+    <div class="row"><span data-i18n="foot.language"></span><button class="small" id="langBtn"></button></div>
+    <div class="errs" id="errs" hidden></div>
+  </section>
+</main>
+
+<div class="toast glass" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+'use strict';
+const $ = (id) => document.getElementById(id);
+
+/* ---- language: English by default, Korean when the phone is Korean; a footer button overrides ---- */
+const STRINGS = {
+  en: {
+    'conn.connecting': 'Connecting', 'conn.ok': 'Connected', 'conn.lost': 'Offline', 'conn.failed': 'Could not reach the Mac',
+    'approvals.title': 'sudo approval requests', 'approve': 'Approve with Face ID', 'deny': 'Deny', 'denied': 'Denied',
+    'approve.sent': 'Approval sent. The Mac is checking the signature', 'approve.gone': 'That sudo request has already ended or expired',
+    'approve.meta': '{parent} (pid {ppid}) asked · in {cwd} · user {user} · ', 'approve.left': '{n}s left',
+    'passkey.https': 'Passkeys only work on the HTTPS address',
+    'enroll.title': 'Register this phone for approvals', 'enroll.help': 'Type the code shown in the Mac terminal and create a passkey with Face ID. User',
+    'enroll.code': 'Enrollment code', 'enroll.button': 'Register with Face ID', 'enroll.code.bad': 'Enter the 6-digit enrollment code',
+    'enroll.unavailable': 'This device says it cannot create a Face ID passkey. Check that iCloud Keychain is on',
+    'enroll.nokey': 'This browser does not return the public key', 'enroll.sent': 'Registration sent. Check the terminal for the result',
+    'push.checking': 'Checking', 'push.https': 'HTTPS needed', 'push.home': 'Home Screen app only', 'push.on': 'Turn off', 'push.off': 'Turn on',
+    'push.unavailable': 'Notifications are not available here', 'push.disabled': 'Notifications turned off', 'push.denied': 'Notification permission was denied',
+    'push.enabled': 'sudo approval notifications turned on', 'push.broken': 'Unavailable',
+    'battery': 'Battery', 'battery.reading': 'Reading battery', 'battery.none': 'No battery information',
+    'bat.charging': 'Charging', 'bat.charged': 'Charged', 'bat.discharging': 'On battery', 'bat.attached': 'Not charging', 'bat.finishing': 'Finishing charge',
+    'src.ac': 'Plugged into power', 'src.battery': 'Running on battery', 'src.ups': 'Running on UPS',
+    'display': 'Display', 'display.aria': 'Display on or off', 'display.on': 'On', 'display.off': 'Off', 'unknown': 'Unknown',
+    'lock': 'Lock', 'lock.aria': 'Lock the Mac', 'locked': 'Locked', 'lock.local': 'Unlocking has to happen at the Mac',
+    'away': 'Step away', 'away.sub': 'Dim, lock, sleep', 'away.aria': 'Step away: keyboard off, lock, display off',
+    'brightness': 'Brightness', 'volume': 'Volume', 'keyboard': 'Keyboard backlight', 'keyboard.off': 'Keyboard off', 'keyboard.isoff': 'Off',
+    'mute': 'Mute', 'muted': 'Muted', 'mute.none': 'Volume could not be read, so mute cannot be changed', 'sound.off': 'Sound off', 'sound.on': 'Sound on',
+    'display.asleep': 'Display off', 'keyboard.blocked': 'The keyboard backlight cannot change while the display is off. Wake the display first',
+    'done.display_off': 'Display turned off', 'done.display_on': 'Display turned on', 'done.lock': 'Mac locked',
+    'done.away': 'Keyboard off, locked, display off', 'done.keyboard': 'Keyboard backlight turned off',
+    'unreached': 'Command sent, but the value has not changed yet', 'unreached.display_off': 'Command sent, but the display is still on',
+    'unreached.display_on': 'Command sent, but the display is still off', 'unreached.lock': 'Command sent, but the Mac is not locked yet',
+    'unreached.away': 'Command sent, but the display or lock state has not changed yet',
+    'field.volume': 'Volume', 'field.muted': 'Mute', 'field.helper': 'Helper', 'field.keyboard': 'Keyboard', 'field.brightness': 'Brightness', 'field.battery': 'Battery',
+    'foot': 'Connection', 'foot.seen': 'Last update', 'foot.beat': 'Server heartbeat', 'foot.push': 'sudo approval alerts',
+    'foot.secure': 'Passkeys and alerts', 'foot.secure.link': 'Open the HTTPS address', 'foot.language': 'Language', 'lang.name': 'English',
+  },
+  ko: {
+    'conn.connecting': '연결 중', 'conn.ok': '연결됨', 'conn.lost': '연결 끊김', 'conn.failed': '맥에 연결하지 못했습니다',
+    'approvals.title': 'sudo 승인 요청', 'approve': 'Face ID로 승인', 'deny': '거부', 'denied': '거부했습니다',
+    'approve.sent': '승인을 보냈습니다. 맥이 서명을 확인합니다', 'approve.gone': '그 sudo 요청은 이미 끝났거나 시간이 지났습니다',
+    'approve.meta': '{parent} (pid {ppid})이(가) 요청 · 디렉터리 {cwd} · 사용자 {user} · ', 'approve.left': '{n}초 남음',
+    'passkey.https': 'passkey는 HTTPS 주소에서만 쓸 수 있습니다',
+    'enroll.title': '이 폰을 승인 기기로 등록', 'enroll.help': '맥 터미널에 표시된 등록 코드를 입력하고 Face ID로 passkey를 만듭니다. 사용자',
+    'enroll.code': '등록 코드', 'enroll.button': 'Face ID로 등록', 'enroll.code.bad': '6자리 등록 코드를 입력하세요',
+    'enroll.unavailable': '이 기기에서 Face ID passkey를 쓸 수 없다고 합니다. iCloud 키체인이 켜져 있는지 확인하세요',
+    'enroll.nokey': '이 브라우저는 공개키를 내주지 않습니다', 'enroll.sent': '등록 정보를 보냈습니다. 터미널에서 결과를 확인하세요',
+    'push.checking': '확인 중', 'push.https': 'HTTPS 필요', 'push.home': '홈 화면 앱에서', 'push.on': '끄기', 'push.off': '켜기',
+    'push.unavailable': '이 환경에서는 알림을 쓸 수 없습니다', 'push.disabled': '알림을 껐습니다', 'push.denied': '알림 권한이 거부되었습니다',
+    'push.enabled': 'sudo 승인 알림을 켰습니다', 'push.broken': '사용 불가',
+    'battery': '배터리', 'battery.reading': '배터리 정보를 읽는 중', 'battery.none': '배터리 정보 없음',
+    'bat.charging': '충전 중', 'bat.charged': '충전 완료', 'bat.discharging': '배터리 사용', 'bat.attached': '충전 안 함', 'bat.finishing': '충전 마무리',
+    'src.ac': '전원 어댑터에 연결됨', 'src.battery': '배터리로 동작 중', 'src.ups': 'UPS 전원으로 동작 중',
+    'display': '화면', 'display.aria': '화면 켜고 끄기', 'display.on': '켜짐', 'display.off': '꺼짐', 'unknown': '알 수 없음',
+    'lock': '잠금', 'lock.aria': '잠그기', 'locked': '잠김', 'lock.local': '잠금 해제는 맥에서 직접 해야 합니다',
+    'away': '자리 비움', 'away.sub': '끄고 잠그기', 'away.aria': '자리 비움: 키보드를 끄고 잠근 뒤 화면 끄기',
+    'brightness': '화면 밝기', 'volume': '음량', 'keyboard': '키보드 불빛', 'keyboard.off': '키보드 끄기', 'keyboard.isoff': '꺼짐',
+    'mute': '음소거', 'muted': '음소거됨', 'mute.none': '음량 정보를 읽지 못해 음소거를 바꿀 수 없습니다', 'sound.off': '소리를 껐습니다', 'sound.on': '소리를 켰습니다',
+    'display.asleep': '화면 꺼짐', 'keyboard.blocked': '화면이 꺼져 있으면 키보드 불빛을 바꿀 수 없습니다. 화면을 먼저 켜 주세요',
+    'done.display_off': '화면을 껐습니다', 'done.display_on': '화면을 켰습니다', 'done.lock': '맥을 잠갔습니다',
+    'done.away': '키보드를 끄고 잠근 뒤 화면을 껐습니다', 'done.keyboard': '키보드 불빛을 껐습니다',
+    'unreached': '명령은 보냈지만 값이 아직 바뀌지 않았습니다', 'unreached.display_off': '명령은 보냈지만 화면이 아직 켜져 있습니다',
+    'unreached.display_on': '명령은 보냈지만 화면이 아직 꺼져 있습니다', 'unreached.lock': '명령은 보냈지만 아직 잠기지 않았습니다',
+    'unreached.away': '명령은 보냈지만 화면이나 잠금 상태가 아직 바뀌지 않았습니다',
+    'field.volume': '음량', 'field.muted': '음소거', 'field.helper': '도우미', 'field.keyboard': '키보드', 'field.brightness': '밝기', 'field.battery': '배터리',
+    'foot': '연결 상태', 'foot.seen': '마지막 확인', 'foot.beat': '서버 하트비트', 'foot.push': 'sudo 승인 알림',
+    'foot.secure': 'passkey와 알림', 'foot.secure.link': 'HTTPS 주소에서 열기', 'foot.language': '언어', 'lang.name': '한국어',
+  },
+};
+function pickLanguage() {
+  try { const saved = localStorage.getItem('lang'); if (STRINGS[saved]) return saved; } catch (_) { /* storage may be unavailable */ }
+  return (navigator.language || 'en').toLowerCase().startsWith('ko') ? 'ko' : 'en';
+}
+let LANG = pickLanguage();
+const t = (key, vars) => {
+  let text = Object.prototype.hasOwnProperty.call(STRINGS[LANG], key) ? STRINGS[LANG][key] : (STRINGS.en[key] || key);
+  if (vars) for (const [name, value] of Object.entries(vars)) text = text.split(`{${name}}`).join(value);
+  return text;
+};
+const LOCALE = { en: 'en-US', ko: 'ko-KR' };
+let clock, today;
+function applyLanguage() {
+  document.documentElement.lang = LANG;
+  clock = new Intl.DateTimeFormat(LOCALE[LANG], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  today = new Intl.DateTimeFormat(LOCALE[LANG], { month: 'long', day: 'numeric', weekday: 'long' });
+  document.querySelectorAll('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-aria]').forEach((el) => { el.setAttribute('aria-label', t(el.dataset.i18nAria)); });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+  $('langBtn').textContent = t('lang.name');
+}
+$('langBtn').addEventListener('click', () => {
+  LANG = LANG === 'ko' ? 'en' : 'ko';
+  try { localStorage.setItem('lang', LANG); } catch (_) { /* fine without memory */ }
+  applyLanguage();
+  if (state) render(state);
+  showPush().catch(() => {});
+});
+const BATTERY = { 'charging': 'bat.charging', 'charged': 'bat.charged', 'discharging': 'bat.discharging', 'AC attached': 'bat.attached', 'finishing charge': 'bat.finishing' };
+const SOURCE = { 'AC Power': 'src.ac', 'Battery Power': 'src.battery', 'UPS Power': 'src.ups' };
+const DONE = { display_off: 'done.display_off', display_on: 'done.display_on', lock: 'done.lock', away: 'done.away', mute: null, keyboard: 'done.keyboard' };
+const UNREACHED = { display_off: 'unreached.display_off', display_on: 'unreached.display_on', lock: 'unreached.lock', away: 'unreached.away' };
+
+let state = null;
+const busy = new Set();
+let toastTimer = 0;
+const SECURE = window.isSecureContext;  // passkeys and push need the HTTPS origin
+
+function toast(message, error = false) {
+  const t = $('toast');
+  t.textContent = message;
+  t.classList.toggle('err', error);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+function setConn(ok) {
+  $('conn').classList.toggle('ok', ok);
+  $('conn').classList.toggle('bad', !ok);
+  $('connText').textContent = ok ? t('conn.ok') : t('conn.lost');
+}
+
+async function call(method, path, body) {
+  const options = { method, cache: 'no-store' };
+  if (body) {
+    options.headers = { 'Content-Type': 'application/json', 'X-Mac-Remote': '1' };
+    options.body = JSON.stringify(body);
+  }
+  const response = await fetch(path, options);
+  let data = null;
+  try { data = await response.json(); } catch (_) { /* non-JSON error page */ }
+  if (!response.ok) {
+    const error = new Error((data && data.error) || `HTTP ${response.status}`);
+    error.state = data && data.state;
+    throw error;
+  }
+  return data;
+}
+
+async function refresh() {
+  try {
+    render(await call('GET', '/api/state'));
+    setConn(true);
+  } catch (_) {
+    setConn(false);
+    return;
+  }
+  try {
+    const [sudo, enroll] = await Promise.all([call('GET', '/api/approvals/sudo'), call('GET', '/api/approvals/enroll')]);
+    renderApprovals(sudo.items);
+    renderEnroll(enroll.items[0] || null);
+  } catch (_) { /* the state call already reported the connection; approvals retry next tick */ }
+}
+
+/* ---- sudo approvals: the phone signs the module's challenge with a passkey ---- */
+const b64u = (buffer) => btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+function unb64u(text) {
+  let s = text.replace(/-/g, '+').replace(/_/g, '/');
+  while (s.length % 4) s += '=';
+  return Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+}
+function report(where, error) {
+  // Fire-and-forget: the server log is the only place these phone-side errors can be read.
+  call('POST', '/api/log', { where, name: error && error.name, message: error && error.message, ua: navigator.userAgent,
+    standalone: !!navigator.standalone, secure: SECURE, host: location.host }).catch(() => {});
+}
+const describe = (error) => (error && error.name ? `${error.name}: ${error.message}` : String(error));
+const deciding = new Set();
+const relative = new Intl.RelativeTimeFormat('ko-KR', { numeric: 'always' });
+
+// Opened from a notification: say so when that request is already gone instead of showing nothing.
+let expectedApproval = new URLSearchParams(location.search).get('approval');
+
+function renderApprovals(items) {
+  const box = $('approvals');
+  const list = $('approvalList');
+  if (expectedApproval) {
+    if (!items.some((i) => i.id === expectedApproval)) toast(t('approve.gone'), true);
+    expectedApproval = null;
+    history.replaceState(null, '', location.pathname);
+  }
+  const ids = new Set(items.map((i) => i.id));
+  for (const el of [...list.children]) if (!ids.has(el.dataset.id)) el.remove();
+  for (const item of items) {
+    let el = list.querySelector(`[data-id="${item.id}"]`);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'approval';
+      el.dataset.id = item.id;
+      el.innerHTML = '<div class="cmd"></div><div class="meta"><span class="who"></span><span class="left"></span></div><div class="actions">'
+        + '<button class="btn no"></button><button class="btn ok"></button></div>';
+      el.querySelector('.cmd').textContent = item.command.join(' ');
+      el.querySelector('.btn.no').textContent = t('deny');
+      el.querySelector('.btn.ok').textContent = t('approve');
+      el.querySelector('.who').textContent = t('approve.meta', { parent: item.parent, ppid: item.ppid, cwd: item.cwd, user: item.user });
+      el.querySelector('.btn.no').addEventListener('click', () => decide(item, false, el));
+      el.querySelector('.btn.ok').addEventListener('click', () => decide(item, true, el));
+      list.appendChild(el);
+    }
+    const left = Math.max(0, Math.round((new Date(item.created_at).getTime() + item.timeout * 1000 - Date.now()) / 1000));
+    el.querySelector('.left').textContent = t('approve.left', { n: left });
+    if (!SECURE) el.querySelector('.btn.ok').disabled = true;
+  }
+  box.hidden = items.length === 0;
+}
+
+async function decide(item, approve, el) {
+  if (deciding.has(item.id)) return;
+  deciding.add(item.id);
+  el.querySelectorAll('.btn').forEach((b) => { b.disabled = true; });
+  try {
+    if (!approve) {
+      await call('POST', `/api/approvals/sudo/${item.id}/deny`, {});
+      toast(t('denied'));
+    } else {
+      if (!SECURE) throw new Error(t('passkey.https'));
+      const credential = await navigator.credentials.get({ publicKey: {
+        challenge: unb64u(item.challenge), rpId: location.hostname, userVerification: 'required', timeout: 60000 } });
+      const r = credential.response;
+      await call('POST', `/api/approvals/sudo/${item.id}/answer`, {
+        credential_id: b64u(credential.rawId), authenticator_data: b64u(r.authenticatorData),
+        client_data_json: b64u(r.clientDataJSON), signature: b64u(r.signature) });
+      toast(t('approve.sent'));
+    }
+    el.remove();
+    $('approvals').hidden = $('approvalList').children.length === 0;
+  } catch (error) {
+    report('approve', error);
+    toast(describe(error), true);
+    el.querySelectorAll('.btn').forEach((b) => { b.disabled = false; });
+  } finally {
+    deciding.delete(item.id);
+  }
+}
+
+/* ---- enrollment: create a passkey and send its public key back with the typed code ---- */
+let enrolling = null;
+function renderEnroll(item) {
+  enrolling = item;
+  $('enroll').hidden = item === null;
+  if (item) $('enrollUser').textContent = item.user;
+}
+$('enrollBtn').addEventListener('click', async () => {
+  const item = enrolling;
+  const code = $('enrollCode').value.trim();
+  if (!item) return;
+  if (!/^\d{6}$/.test(code)) { toast(t('enroll.code.bad'), true); return; }
+  if (!SECURE || !window.PublicKeyCredential) { toast(t('passkey.https'), true); return; }
+  $('enrollBtn').disabled = true;
+  try {
+    if (!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())) {
+      throw new Error(t('enroll.unavailable'));
+    }
+    const credential = await navigator.credentials.create({ publicKey: {
+      challenge: unb64u(item.challenge), rp: { id: location.hostname, name: 'Mac Remote' },
+      user: { id: new TextEncoder().encode(`${item.user}@${location.hostname}`), name: item.user, displayName: `${item.user} (Mac Remote)` },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'required', userVerification: 'required' },
+      attestation: 'none', timeout: 120000 } });
+    const spki = credential.response.getPublicKey();
+    if (!spki) throw new Error(t('enroll.nokey'));
+    await call('POST', `/api/approvals/enroll/${item.id}/answer`, {
+      code, credential_id: b64u(credential.rawId), public_key: b64u(spki), client_data_json: b64u(credential.response.clientDataJSON) });
+    toast(t('enroll.sent'));
+    $('enrollCode').value = '';
+    renderEnroll(null);
+  } catch (error) {
+    report('enroll', error);
+    toast(describe(error), true);
+  } finally {
+    $('enrollBtn').disabled = false;
+  }
+});
+
+/* ---- push: only a Home Screen app on the HTTPS origin can subscribe on iOS ---- */
+async function pushRegistration() {
+  if (!SECURE || !('serviceWorker' in navigator) || !('PushManager' in window)) return null;
+  return navigator.serviceWorker.register('sw.js');
+}
+async function showPush() {
+  const btn = $('pushBtn');
+  if (!SECURE) { btn.textContent = t('push.https'); btn.disabled = true; return; }
+  if (!('PushManager' in window)) { btn.textContent = t('push.home'); btn.disabled = true; return; }
+  const registration = await pushRegistration();
+  const subscription = registration && await registration.pushManager.getSubscription();
+  btn.textContent = subscription ? t('push.on') : t('push.off');
+  btn.dataset.on = subscription ? '1' : '';
+  btn.disabled = false;
+}
+$('pushBtn').addEventListener('click', async () => {
+  const btn = $('pushBtn');
+  btn.disabled = true;
+  try {
+    const registration = await pushRegistration();
+    if (!registration) throw new Error(t('push.unavailable'));
+    const current = await registration.pushManager.getSubscription();
+    if (current) {
+      await call('POST', '/api/push/unsubscribe', { endpoint: current.endpoint });
+      await current.unsubscribe();
+      toast(t('push.disabled'));
+    } else {
+      if (await Notification.requestPermission() !== 'granted') throw new Error(t('push.denied'));
+      const { public_key } = await call('GET', '/api/push/key');
+      const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: unb64u(public_key) });
+      await call('POST', '/api/push/subscribe', subscription.toJSON());
+      toast(t('push.enabled'));
+    }
+  } catch (error) {
+    report('push', error);
+    toast(describe(error), true);
+  }
+  await showPush();
+});
+
+async function act(action, value, quiet = false) {
+  try {
+    const result = await call('POST', '/api/action', value === undefined ? { action } : { action, value });
+    render(result);
+    setConn(true);
+    if (!result.action.reached) toast(t(UNREACHED[action] || 'unreached'), true);
+    else if (!quiet && DONE[action]) toast(t(DONE[action]));
+    else if (action === 'mute') toast(value ? t('sound.off') : t('sound.on'));
+    return result;
+  } catch (error) {
+    if (error.state) render(error.state);
+    const offline = error instanceof TypeError;
+    if (offline) setConn(false);
+    toast(offline ? t('conn.failed') : error.message, true);
+    return null;
+  }
+}
+
+function tile(id, { on = false, na = false, alert = false, cap }) {
+  const el = $(id);
+  el.classList.toggle('on', on);
+  el.classList.toggle('na', na);
+  el.classList.toggle('alert', alert);
+  el.setAttribute('aria-pressed', String(on));
+  if (cap !== undefined) el.querySelector('.cap').textContent = cap;
+}
+
+async function press(id, run) {
+  const el = $(id);
+  if (el.classList.contains('wait')) return;
+  el.classList.add('wait');
+  try { await run(); } finally { el.classList.remove('wait'); }
+}
+
+function render(s) {
+  state = s;
+  $('name').textContent = s.name || 'Mac';
+
+  const b = s.battery;
+  if (b) {
+    const low = b.percent <= 20 && b.state !== 'charging';
+    $('batPct').textContent = b.percent;
+    $('batArc').setAttribute('stroke-dasharray', `${b.percent} 100`);
+    $('batArc').style.stroke = low ? 'var(--red)' : b.percent <= 35 && b.state !== 'charging' ? 'var(--orange)' : 'var(--green)';
+    $('batChip').hidden = false;
+    $('batChip').classList.toggle('charging', b.state === 'charging');
+    $('batChip').querySelector('.ic').style.display = b.state === 'charging' ? '' : 'none';
+    $('batChipText').textContent = BATTERY[b.state] ? t(BATTERY[b.state]) : b.state;
+    $('batSub').textContent = SOURCE[b.source] ? t(SOURCE[b.source]) : (b.source || '');
+  } else {
+    $('batPct').textContent = '--';
+    $('batChip').hidden = true;
+    $('batSub').textContent = t('battery.none');
+  }
+
+  const asleep = s.displays_asleep;
+  tile('displayBtn', { on: asleep === false, na: asleep === null, cap: asleep === null ? t('unknown') : asleep ? t('display.off') : t('display.on') });
+  tile('lockBtn', { on: s.locked === true, na: s.locked === null, cap: s.locked ? t('locked') : t('lock') });
+  $('lockIcon').setAttribute('href', s.locked ? '#i-lock' : '#i-unlock');
+  tile('muteBtn', { on: s.muted === true, na: s.muted === null, alert: s.muted === true, cap: s.muted === null ? t('unknown') : s.muted ? t('muted') : t('mute') });
+  const keyboardBlocked = asleep === true;
+  tile('kbdOffBtn', { on: s.keyboard === 0 && !keyboardBlocked, na: s.keyboard === null || keyboardBlocked,
+    cap: keyboardBlocked ? t('display.asleep') : s.keyboard === 0 ? t('keyboard.isoff') : t('keyboard.off') });
+
+  document.querySelectorAll('.slider').forEach((el) => {
+    const value = s[el.dataset.key];
+    // macOS keeps the keyboard backlight off while the display sleeps and ignores changes.
+    el.blocked = el.dataset.key === 'keyboard' && keyboardBlocked ? t('keyboard.blocked') : '';
+    el.classList.toggle('na', value === null || el.blocked !== '');
+    if (value === null) { el.show(null); return; }
+    if (el.blocked) { el.show(0); el.querySelector('.val').textContent = t('display.asleep'); return; }
+    if (!busy.has(el.dataset.key)) el.show(value);
+  });
+
+  if (!SECURE && s.https_origin) {
+    $('secureRow').hidden = false;
+    $('secureLink').href = s.https_origin + '/';
+  }
+  $('seen').textContent = clock.format(new Date());
+  $('beat').textContent = s.server && s.server.heartbeat_at ? clock.format(new Date(s.server.heartbeat_at)) : '--';
+  const errors = Object.entries(s.errors || {});
+  $('errs').hidden = errors.length === 0;
+  $('errs').textContent = errors.map(([key, message]) => `${t('field.' + key) === 'field.' + key ? key : t('field.' + key)}: ${message}`).join('\n');
+}
+
+function slider(el) {
+  const key = el.dataset.key;
+  const clamp = (n) => Math.max(0, Math.min(100, n));
+  let startY = 0, startValue = 0, value = 0, moved = false, inflight = false, pending = null, timer = 0;
+  el.blocked = '';
+
+  el.show = (v) => {
+    el.style.setProperty('--v', v === null ? 0 : v);
+    el.querySelector('.val').textContent = v === null ? '--' : v;
+    el.setAttribute('aria-valuenow', v === null ? 0 : v);
+    el.classList.toggle('lit', v !== null && v >= 24);
+    el.classList.toggle('top', v !== null && v >= 88);
+  };
+
+  async function send(v) {
+    if (inflight) { pending = v; return; }
+    inflight = true;
+    busy.add(key);
+    await act(key, v, true);
+    inflight = false;
+    if (pending !== null && pending !== v) {
+      const next = pending;
+      pending = null;
+      send(next);
+      return;
+    }
+    pending = null;
+    if (!el.classList.contains('drag')) {
+      busy.delete(key);
+      if (state) render(state);
+    }
+  }
+
+  function schedule() {
+    if (timer) return;
+    timer = setTimeout(() => { timer = 0; send(value); }, 110);
+  }
+
+  el.addEventListener('pointerdown', (event) => {
+    if (el.blocked) { toast(el.blocked, true); return; }
+    if (!state || state[key] === null) return;
+    el.setPointerCapture(event.pointerId);
+    el.classList.add('drag');
+    busy.add(key);
+    startY = event.clientY;
+    startValue = value = state[key];
+    moved = false;
+  });
+  el.addEventListener('pointermove', (event) => {
+    if (!el.classList.contains('drag')) return;
+    const next = clamp(Math.round(startValue + (startY - event.clientY) / el.clientHeight * 100));
+    if (next === value) return;
+    value = next;
+    moved = true;
+    el.show(value);
+    schedule();
+  });
+  const end = () => {
+    if (!el.classList.contains('drag')) return;
+    el.classList.remove('drag');
+    clearTimeout(timer);
+    timer = 0;
+    if (moved) send(value);
+    else if (!inflight) busy.delete(key);
+  };
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+  el.addEventListener('keydown', (event) => {
+    const step = { ArrowUp: 5, ArrowRight: 5, ArrowDown: -5, ArrowLeft: -5 }[event.key];
+    if (!step || !state || state[key] === null) return;
+    if (el.blocked) { toast(el.blocked, true); return; }
+    event.preventDefault();
+    value = clamp((busy.has(key) ? value : state[key]) + step);
+    el.show(value);
+    send(value);
+  });
+}
+
+document.querySelectorAll('.slider').forEach(slider);
+
+$('displayBtn').addEventListener('click', () => press('displayBtn', async () => {
+  if (!state || state.displays_asleep === null) return;
+  await act(state.displays_asleep ? 'display_on' : 'display_off');
+}));
+$('lockBtn').addEventListener('click', () => press('lockBtn', async () => {
+  if (state && state.locked) { toast(t('lock.local')); return; }
+  await act('lock');
+}));
+$('awayBtn').addEventListener('click', () => press('awayBtn', () => act('away')));
+$('muteBtn').addEventListener('click', () => press('muteBtn', async () => {
+  if (!state || state.muted === null) { toast(t('mute.none'), true); return; }
+  await act('mute', !state.muted);
+}));
+$('kbdOffBtn').addEventListener('click', () => press('kbdOffBtn', async () => {
+  if (state && state.displays_asleep === true) { toast(t('keyboard.blocked'), true); return; }
+  if (!state || state.keyboard === null) return;
+  await act('keyboard', 0);
+}));
+
+function tick() { $('date').textContent = today.format(new Date()); }
+let poll = 0;
+function start() { stop(); tick(); refresh(); poll = setInterval(() => { tick(); refresh(); }, 3000); }
+applyLanguage();
+showPush().catch(() => { $('pushBtn').textContent = t('push.broken'); $('pushBtn').disabled = true; });
+function stop() { clearInterval(poll); poll = 0; }
+document.addEventListener('visibilitychange', () => (document.hidden ? stop() : start()));
+start();
+</script>
+</body>
+</html>
