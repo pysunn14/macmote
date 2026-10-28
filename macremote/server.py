@@ -100,6 +100,10 @@ STATIC = {
     "/icon-180.png": ("icon-180.png", "image/png"),
     "/icon-512.png": ("icon-512.png", "image/png"),
     "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
+    "/app.css": ("app.css", "text/css; charset=utf-8"),
+    "/i18n.js": ("i18n.js", "text/javascript; charset=utf-8"),
+    "/app.js": ("app.js", "text/javascript; charset=utf-8"),
+    "/approvals.js": ("approvals.js", "text/javascript; charset=utf-8"),
 }
 
 PAGE_POLICY = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
@@ -145,6 +149,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(503, {"error": "push is not configured"})
             else:
                 self._json(200, {"public_key": app.push.public_key})
+            return
+        if path == "/api/push/status":
+            self._json(200, {"configured": app.push is not None,
+                             "subscriptions": 0 if app.push is None else len(app.push.subscriptions)})
             return
         parts = path.split("/")
         if parts[1:3] == ["api", "approvals"] and len(parts) == 4 and parts[3] in KINDS:
@@ -193,7 +201,7 @@ class Handler(BaseHTTPRequestHandler):
         route = None
         if path == "/api/action":
             route = self._post_action
-        elif path in ("/api/push/subscribe", "/api/push/unsubscribe"):
+        elif path in ("/api/push/subscribe", "/api/push/unsubscribe", "/api/push/test"):
             route = self._post_push
         elif path == "/api/log":
             route = self._post_log
@@ -253,6 +261,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         if parts[3] == "subscribe":
             push.subscribe(validate_subscription(body))
+        elif parts[3] == "test":
+            # Setup's last step: prove that notifications reach this phone.
+            push.send({"title": "Mac Remote", "body": "Notifications work. Setup is complete.", "url": "/", "id": "test"})
         else:
             endpoint = body.get("endpoint")
             if not isinstance(endpoint, str):

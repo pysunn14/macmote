@@ -201,6 +201,16 @@ class PushRouteTests(ServerCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["public_key"], "VkFQSUQ")
 
+    def test_status_and_test_push(self):
+        status, body = self.request("GET", "/api/push/status")
+        self.assertEqual(status, 200)
+        self.assertTrue(body["configured"])
+        self.assertEqual(body["subscriptions"], len(self.push.subscriptions))
+        before = len(self.push.sent)
+        status, _ = self.post("/api/push/test", {})
+        self.assertEqual(status, 200)
+        self.assertEqual(self.push.sent[before]["id"], "test")
+
     def test_subscribe_and_unsubscribe(self):
         status, body = self.post("/api/push/subscribe", SUBSCRIPTION)
         self.assertEqual(status, 200)

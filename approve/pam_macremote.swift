@@ -1,19 +1,18 @@
-import CoreGraphics
 import Foundation
-import IOKit
-import SystemConfiguration
+import LocalAuthentication
 import os
 
-// pam_macremote: lets the phone approve a sudo while the user is away from the Mac.
+// pam_macremote: lets the phone approve a sudo, wherever the user happens to be.
 //
-// Flow: skip (PAM_IGNORE, so the chain moves on to Touch ID and the password) when the user is
-// at the console, when sudo was run with -n, or when no passkey is enrolled; otherwise post the
-// command to the mac-remote relay, wait for the phone's Face ID assertion, verify it here with
-// the root-only key file and return SUCCESS. Timeouts and denials return AUTH_ERR.
+// Flow: skip (PAM_IGNORE, so the chain moves on to Touch ID and the password) when sudo was run
+// with -n, when no passkey is enrolled, or when the relay is unreachable. Otherwise post the
+// command to the mac-remote relay AND, when a display session is available, show the Mac's own
+// Touch ID dialog. Whichever answers first decides: a verified Face ID assertion from the phone
+// or a local biometric (or Apple Watch) success returns PAM_SUCCESS and cancels the other side.
+// Denials and timeouts return PAM_AUTH_ERR.
 //
-// Options on the sudo_local line: timeout=<s> (default 120), idle=<s> (default 90), server=<url>.
-// Test-only options (used by /etc/pam.d/macremote-test): always=1 skips the at-the-console check,
-// debug=1 also prints every log line through the PAM conversation.
+// Options on the sudo_local line: timeout=<s> (default 120), server=<url>, local=0 (phone only).
+// Test-only: debug=1 also prints every log line through the PAM conversation.
 
 let logger = OSLog(subsystem: "mac-remote", category: "pam")
 // The PAM result codes come in as Int enum cases; the entry points must return Int32.
@@ -23,27 +22,25 @@ let IGNORE = Int32(PAM_IGNORE)
 
 var debugHandle: OpaquePointer?
 let LOG_FILE = "/var/log/mac-remote-pam.log"  // JSON lines, like the server's log; root-written, world-readable
+// Opened once while still root: later lines may be written while the effective uid is the user
+// (see startLocalPrompt), and an open descriptor keeps working regardless.
+let logDescriptor: Int32 = open(LOG_FILE, O_WRONLY | O_APPEND | O_CREAT, 0o644)
 
 func note(_ message: String) {
     os_log("%{public}s", log: logger, type: .default, message)
     if let pamh = debugHandle { inform(pamh, "[pam_macremote] " + message) }
     let line: [String: Any] = ["ts": isoNow(), "pid": Int(getpid()), "msg": message]
-    if let data = try? JSONSerialization.data(withJSONObject: line, options: [.sortedKeys]) {
-        let fd = open(LOG_FILE, O_WRONLY | O_APPEND | O_CREAT, 0o644)
-        if fd >= 0 {
-            var bytes = [UInt8](data)
-            bytes.append(0x0A)
-            _ = bytes.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
-            close(fd)
-        }
+    if logDescriptor >= 0, let data = try? JSONSerialization.data(withJSONObject: line, options: [.sortedKeys]) {
+        var bytes = [UInt8](data)
+        bytes.append(0x0A)
+        _ = bytes.withUnsafeBytes { write(logDescriptor, $0.baseAddress, $0.count) }
     }
 }
 
 struct Options {
     var timeout = 120.0
-    var idle = 90.0
     var server = "http://127.0.0.1:18790"
-    var always = false
+    var local = true
     var debug = false
 
     init(argc: Int32, argv: UnsafePointer<UnsafePointer<CChar>?>?) {
@@ -54,9 +51,8 @@ struct Options {
             guard parts.count == 2 else { continue }
             switch parts[0] {
             case "timeout": timeout = Double(parts[1]) ?? timeout
-            case "idle": idle = Double(parts[1]) ?? idle
             case "server": server = parts[1]
-            case "always": always = parts[1] == "1"
+            case "local": local = parts[1] != "0"
             case "debug": debug = parts[1] == "1"
             default: break
             }
@@ -123,26 +119,40 @@ func parentName() -> String {
     return length > 0 ? String(cString: name) : "?"
 }
 
-func consoleUser() -> String? {
-    var uid: uid_t = 0
-    guard let name = SCDynamicStoreCopyConsoleUser(nil, &uid, nil) as String? else { return nil }
-    return name
+/// Outcome of the race between the phone and the local Touch ID dialog.
+enum Outcome {
+    case phone(Credential)
+    case local
+    case denied(String)   // reason shown to the user
+    case failed(String)   // internal reason, logged
 }
 
-func idleSeconds() -> Double? {
-    let service = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOHIDSystem"))
-    guard service != 0 else { return nil }
-    defer { IOObjectRelease(service) }
-    guard let value = IORegistryEntryCreateCFProperty(service, "HIDIdleTime" as CFString, kCFAllocatorDefault, 0)?
-            .takeRetainedValue() as? Int64 else { return nil }
-    return Double(value) / 1_000_000_000
-}
-
-func anyDisplayAwake() -> Bool {
-    var ids = [CGDirectDisplayID](repeating: 0, count: 16)
-    var count: UInt32 = 0
-    guard CGGetOnlineDisplayList(UInt32(ids.count), &ids, &count) == .success else { return false }
-    return ids.prefix(Int(count)).contains { CGDisplayIsAsleep($0) == 0 }
+/// The Mac's own biometric prompt (Touch ID, or Apple Watch unlock), when a display session
+/// exists. Returns nil immediately when it cannot be shown (ssh, no GUI), so the phone is the
+/// only path then. The completion runs on LocalAuthentication's own queue.
+func startLocalPrompt(reason: String, uid: uid_t, completion: @escaping (Bool) -> Void) -> LAContext? {
+    // sudo runs this module with real and effective uid 0, and LocalAuthentication looks up
+    // enrolment for the effective user: as root it reports "Biometry is not enrolled". So the
+    // context is created and evaluated with the effective uid switched to the invoking user
+    // (observed 2026-10: seteuid(user) from root makes canEvaluatePolicy true). The caller
+    // restores root once the race is over; the saved uid stays 0, so seteuid(0) is allowed.
+    guard seteuid(uid) == 0 else { note("seteuid(\(uid)) failed; no local prompt"); return nil }
+    let context = LAContext()
+    var error: NSError?
+    let policy: LAPolicy = .deviceOwnerAuthenticationWithBiometricsOrCompanion  // Touch ID, or Apple Watch unlock
+    guard context.canEvaluatePolicy(policy, error: &error) else {
+        note("local prompt unavailable: \(error?.localizedDescription ?? "?")")
+        return nil
+    }
+    context.localizedFallbackTitle = ""  // no password button; the password prompt follows via PAM anyway
+    context.evaluatePolicy(policy, localizedReason: reason) { success, error in
+        // The reason matters for diagnosis: appCancel means this module withdrew the dialog
+        // because the phone answered first; anything else says what the Mac side did.
+        if !success { note("local prompt ended: \((error as NSError?).map { "\($0.domain) \($0.code) \($0.localizedDescription)" } ?? "no error")") }
+        completion(success)
+    }
+    note("local prompt shown for uid \(uid)")
+    return context
 }
 
 func inform(_ pamh: OpaquePointer, _ message: String) {
@@ -163,10 +173,6 @@ func authenticate(_ pamh: OpaquePointer?, options: Options) -> Int32 {
     let arguments = processArguments()
     if sudoOptions(arguments).contains(where: { $0 == "-n" || $0 == "--non-interactive" }) {
         note("sudo -n; ignoring")
-        return IGNORE
-    }
-    if !options.always, let console = consoleUser(), console == user, let idle = idleSeconds(), idle < options.idle, anyDisplayAwake() {
-        note("\(user) is at the console (idle \(Int(idle))s); leaving it to Touch ID")
         return IGNORE
     }
     let store: KeyStore
@@ -192,31 +198,60 @@ func authenticate(_ pamh: OpaquePointer?, options: Options) -> Int32 {
         note("relay create failed: \(error); ignoring")
         return IGNORE
     }
-    inform(pamh, "Waiting for phone approval (up to \(Int(options.timeout))s): \(command.joined(separator: " "))")
-    note("approval \(id) requested for \(command.joined(separator: " ")) by \(parentName())")
-    let answer: [String: Any]?
-    do { answer = try relay.wait(kind: "sudo", id: id, deadline: Date().addingTimeInterval(options.timeout)) } catch {
-        note("approval \(id) wait failed: \(error)")
-        inform(pamh, "Lost the mac-remote server; no phone approval")
-        return AUTH_ERR
+    let commandText = command.joined(separator: " ")
+    note("approval \(id) requested for \(commandText) by \(parentName())")
+
+    // Race: the first side to answer wins; the other is cancelled so no stale prompt lingers.
+    let decided = DispatchSemaphore(value: 0)
+    let lock = NSLock()
+    var outcome: Outcome?
+    func settle(_ result: Outcome) {
+        lock.lock(); defer { lock.unlock() }
+        guard outcome == nil else { return }
+        outcome = result
+        decided.signal()
     }
-    guard let item = answer, let status = item["status"] as? String else {
-        note("approval \(id) vanished from the relay")
-        return AUTH_ERR
+    let uid = getpwnam(user)?.pointee.pw_uid
+    let local = (options.local && uid != nil) ? startLocalPrompt(reason: "sudo: \(commandText)", uid: uid!) { success in
+        if success { settle(.local) }
+    } : nil
+    inform(pamh, local == nil ? "Approve on the phone (up to \(Int(options.timeout))s): \(commandText)"
+                              : "Approve on the phone or with Touch ID (up to \(Int(options.timeout))s): \(commandText)")
+    let deadline = Date().addingTimeInterval(options.timeout)
+    Thread.detachNewThread {
+        do {
+            guard let item = try relay.wait(kind: "sudo", id: id, deadline: deadline) else { settle(.failed("vanished from the relay")); return }
+            guard let status = item["status"] as? String else { settle(.failed("no status")); return }
+            guard status == "answered", let fields = item["answer"] as? [String: Any] else {
+                settle(status == "denied" ? .denied("Denied on the phone") : .denied("Phone approval timed out")); return
+            }
+            do { settle(.phone(try verify(try Assertion(fields: fields), challenge: challenge, store: store))) }
+            catch { settle(.failed("answer rejected: \(error)")) }
+        } catch { settle(.failed("wait failed: \(error)")) }
     }
-    guard status == "answered", let fields = item["answer"] as? [String: Any] else {
-        note("approval \(id) ended as \(status)")
-        inform(pamh, status == "denied" ? "Denied on the phone" : "Phone approval timed out")
-        return AUTH_ERR
-    }
-    do {
-        let credential = try verify(try Assertion(fields: fields), challenge: challenge, store: store)
+    _ = decided.wait(timeout: .now() + options.timeout + 5)
+    lock.lock(); let result = outcome ?? .denied("Phone approval timed out"); lock.unlock()
+    local?.invalidate()
+    _ = seteuid(0)  // back to root for whatever PAM does next
+    switch result {
+    case .phone(let credential):
         note("approval \(id) verified with passkey \(credential.name) (\(credential.id.prefix(8)))")
         inform(pamh, "Approved on the phone (\(credential.name))")
         return SUCCESS
-    } catch {
-        note("approval \(id) answer rejected: \(error)")
-        inform(pamh, "Phone answer rejected: \(error)")
+    case .local:
+        // Withdraw synchronously: sudo may exec (or exit, for `sudo -v`) the moment we return,
+        // and a detached thread would die with it, leaving a stale card on the phone.
+        do { try relay.deny(kind: "sudo", id: id); note("approval \(id) satisfied by local Touch ID; phone request withdrawn") }
+        catch { note("approval \(id) satisfied by local Touch ID; could not withdraw the phone request: \(error)") }
+        inform(pamh, "Approved with Touch ID")
+        return SUCCESS
+    case .denied(let reason):
+        note("approval \(id) ended: \(reason)")
+        inform(pamh, reason)
+        return AUTH_ERR
+    case .failed(let reason):
+        note("approval \(id) failed: \(reason)")
+        inform(pamh, "Phone approval failed: \(reason)")
         return AUTH_ERR
     }
 }

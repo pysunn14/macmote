@@ -33,8 +33,8 @@ install -o root -g wheel -m 755 "$root/build/pam_macremote.so" "$module"
 install -o root -g wheel -m 755 "$root/build/macremote-enroll" "$tool"
 
 # A test service lets pamtest exercise the module without touching sudo.
-printf '%s\n' "# mac-remote PAM module test service (scripts/install-sudo.sh): always asks the phone, narrates" \
-    "auth       required       $module timeout=90 always=1 debug=1" \
+printf '%s\n' "# mac-remote PAM module test service (scripts/install-sudo.sh): narrates every step" \
+    "auth       required       $module timeout=90 debug=1" \
     > /etc/pam.d/macremote-test
 chmod 644 /etc/pam.d/macremote-test
 
@@ -42,8 +42,9 @@ if [ ! -f /etc/pam.d/sudo_local ]; then
     cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local
 fi
 if ! grep -q -F "$line" /etc/pam.d/sudo_local; then
-    # Our line goes first: it steps aside (PAM_IGNORE) whenever the user is at the Mac, so Touch ID
-    # and the password keep their place right after it.
+    # Our line goes first. It shows the Mac's Touch ID dialog itself alongside the phone request,
+    # and steps aside (PAM_IGNORE) when nothing is enrolled, so pam_tid and the password keep
+    # their place right after it.
     { printf '%s\n%s\n' "$marker" "$line"; cat /etc/pam.d/sudo_local; } > /etc/pam.d/sudo_local.new
     cat /etc/pam.d/sudo_local.new > /etc/pam.d/sudo_local
     rm /etc/pam.d/sudo_local.new

@@ -1,5 +1,6 @@
 import CryptoKit
 import Foundation
+import Vision
 
 // passkey-selftest: builds a synthetic passkey registration and assertion with CryptoKit and
 // runs them through the same verify() and registration() the PAM module and enroll tool use.
@@ -78,6 +79,39 @@ expect("assertion for another rpId is refused", { _ = try verify(try assertion(c
 expect("assertion signed by another key is refused", { _ = try verify(try assertion(challenge: c2, key: P256.Signing.PrivateKey()), challenge: c2, store: store) }, toFailWith: "signature")
 expect("assertion from an unknown credential is refused", { _ = try verify(try assertion(challenge: c2, credentialId: base64url(randomBytes(16))), challenge: c2, store: store) }, toFailWith: "unknown credential")
 expect("webauthn.create used as an assertion is refused", { _ = try verify(try assertion(challenge: c2, type: "webauthn.create"), challenge: c2, store: store) }, toFailWith: "type")
+
+// QR: the symbol CoreImage draws must decode back to the same text, and the terminal rendering
+// must keep the module grid (checked by rebuilding the grid from the half-block characters).
+expect("QR code round trip") {
+    let link = "https://mac.example.com:18791/#pair=AbCdEfGhIjKlMnOp"
+    let grid = try QRCode.modules(link)
+    let size = grid.count
+    var pixels = [UInt8](repeating: 255, count: size * size)
+    for y in 0..<size { for x in 0..<size where grid[y][x] { pixels[y * size + x] = 0 } }
+    let scale = 8
+    var big = [UInt8](repeating: 255, count: size * scale * size * scale)
+    for y in 0..<size * scale { for x in 0..<size * scale { big[y * size * scale + x] = pixels[(y / scale) * size + x / scale] } }
+    let data = Data(big)
+    guard let provider = CGDataProvider(data: data as CFData),
+          let image = CGImage(width: size * scale, height: size * scale, bitsPerComponent: 8, bitsPerPixel: 8, bytesPerRow: size * scale,
+                              space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGBitmapInfo(rawValue: 0), provider: provider,
+                              decode: nil, shouldInterpolate: false, intent: .defaultIntent) else { throw Failure(description: "no image") }
+    let request = VNDetectBarcodesRequest()
+    request.symbologies = [.qr]
+    try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+    guard let payload = request.results?.first?.payloadStringValue else { throw Failure(description: "QR not detected") }
+    guard payload == link else { throw Failure(description: "decoded \(payload)") }
+    let lines = QRCode.terminalLines(grid, quiet: 0)
+    var rebuilt = [[Bool]](repeating: [Bool](repeating: false, count: size), count: size)
+    for (row, line) in lines.enumerated() {
+        for (column, character) in line.enumerated() {
+            let top = character == "▄" || character == " ", bottom = character == "▀" || character == " "
+            if row * 2 < size { rebuilt[row * 2][column] = top }
+            if row * 2 + 1 < size { rebuilt[row * 2 + 1][column] = bottom }
+        }
+    }
+    guard rebuilt == grid else { throw Failure(description: "terminal rendering lost modules") }
+}
 
 print(failures == 0 ? "selftest passed" : "selftest FAILED (\(failures))")
 exit(failures == 0 ? 0 : 1)

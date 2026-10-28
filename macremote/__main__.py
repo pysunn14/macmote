@@ -5,7 +5,7 @@ import argparse
 import json
 from typing import Any, Optional
 
-from . import agent, config
+from . import agent, config, setup
 from .actions import ACTIONS
 from .commands import ActionError, run
 from .server import App, serve
@@ -34,12 +34,20 @@ def main(argv: Optional[list] = None) -> None:
     run_parser.add_argument("value", nargs="?")
     agent_parser = commands.add_parser("agent", help="manage the launchd user agent that runs the server")
     agent_parser.add_argument("verb", choices=["install", "uninstall", "restart", "status"])
+    setup_parser = commands.add_parser("setup", help="guided install: helpers, agent, Tailscale Serve, sudo module, phone pairing")
+    setup_parser.add_argument("--name", default="iPhone", help="name stored with the phone's passkey")
+    setup_parser.add_argument("--yes", action="store_true", help="accept defaults without asking")
+    setup_parser.add_argument("--rebuild", action="store_true", help="rebuild helpers and reinstall the PAM module")
+    setup_parser.add_argument("--skip-sudo", action="store_true", help="only the remote, no sudo approval")
+    setup_parser.add_argument("--no-qr", action="store_true", help="print the pairing code instead of a QR code")
     config_parser = commands.add_parser("config", help="print effective configuration")
     config_parser.add_argument("key", nargs="?", choices=["origin", "detected_origin", "port", "https_port", "agent_label"])
     args = parser.parse_args(argv)
 
     if args.command == "serve":
         serve(args.host, config.port() if args.port is None else args.port)
+    elif args.command == "setup":
+        raise SystemExit(setup.run(args))
     elif args.command == "agent":
         result = {"install": lambda: agent.install(config.port()), "uninstall": agent.uninstall,
                   "restart": agent.restart, "status": agent.status}[args.verb]()

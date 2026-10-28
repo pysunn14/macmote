@@ -40,9 +40,11 @@ sudo ──► pam_macremote.so (root) ─────────────�
   cannot approve anything.
 - Enrollment is opened from the Mac with `sudo`. A one-time code is printed in the terminal and
   compared by the root tool; it never passes through the server.
-- The module steps aside (`PAM_IGNORE`) when you are at the console (recent input, display
-  awake), when `sudo -n` was used, or when no passkey is enrolled, so Touch ID and the password
-  keep working exactly as before. Denials and timeouts fall through to those as well.
+- The module asks the phone and shows the Mac's own Touch ID dialog at the same time; the first
+  answer wins and the other prompt is withdrawn. So you can answer wherever you are, with no
+  "am I at the Mac" guess. It steps aside (`PAM_IGNORE`) when `sudo -n` was used, when no
+  passkey is enrolled, or when the relay is unreachable, so Touch ID and the password keep
+  working exactly as before. Denials and timeouts fall through to those as well.
 - Known limits: only `sudo` is covered, not macOS GUI authorization dialogs. The page is served
   by the user-level process, so a hostile local process could in principle show a different
   command text than the one being approved; the signature binds the challenge, not the text.
@@ -59,18 +61,34 @@ sudo ──► pam_macremote.so (root) ─────────────�
 ## Install
 
 ```sh
+python3 -m macremote setup
+```
+
+The wizard checks prerequisites, builds the helpers, installs the launchd agent, proposes the
+Tailscale Serve rules, installs the PAM module (asks for `sudo`), and prints a QR code. Scan it
+with the iPhone camera: it opens the page in Safari with the pairing token filled in, and the
+page walks through the rest: register with Face ID, approve a test request (the Mac verifies the
+signature and prints the result in the terminal), add the page to the Home Screen, turn on
+notifications from the Home Screen app, send a test notification. The wizard waits for that
+subscription and finishes. Re-running it is safe; every step looks before it acts.
+
+Flags: `--name` (how the phone is listed), `--yes` (no questions), `--rebuild`, `--skip-sudo`,
+`--no-qr` (type the six-digit code instead).
+
+The pieces are available on their own as well:
+
+```sh
 scripts/build.sh                          # helpers, PAM module, tools, icons
-python3 -m macremote agent install        # launchd user agent; writes ~/.config/mac-remote/config.json
+python3 -m macremote agent install        # launchd user agent; remembers the HTTPS origin in the config file
 tailscale serve --bg --http=18790  http://127.0.0.1:18790   # plain page
 tailscale serve --bg --https=18791 http://127.0.0.1:18790   # HTTPS: passkeys and push need it
 sudo scripts/install-sudo.sh              # PAM module into /usr/local/lib/pam and /etc/pam.d/sudo_local
-sudo /usr/local/libexec/mac-remote/macremote-enroll enroll --origin "$(python3 -m macremote config origin)" --name iPhone
+sudo /usr/local/libexec/mac-remote/macremote-enroll enroll --origin "$(python3 -m macremote config origin)" --name iPhone --test
 ```
 
-On the phone, open the HTTPS address in **Safari** (not an in-app browser), type the code from
-the terminal and create the passkey with Face ID. Then add the page to the Home Screen and turn
-on *sudo approval alerts* in the footer. Notifications only work from the Home Screen app.
-
+Passkeys must be created in **Safari** (or the Home Screen app), not an in-app browser.
+Notifications only work from the Home Screen app; Safari and the Home Screen app keep separate
+storage on iOS, which is why the wizard registers in Safari and subscribes from the app.
 `macremote-enroll list` and `macremote-enroll remove <id prefix>` manage enrolled phones.
 
 ## Configuration
@@ -86,8 +104,8 @@ on *sudo approval alerts* in the footer. Notifications only work from the Home S
 Without Tailscale, set `origin` to whatever HTTPS proxy you put in front of the loopback port.
 The origin must match what the phone sees exactly (scheme, host, port); passkeys are bound to it.
 
-Module options on the `sudo_local` line: `timeout=120` (seconds to wait for the phone),
-`idle=90` (input within this many seconds counts as "at the console"), `server=` (relay URL).
+Module options on the `sudo_local` line: `timeout=120` (seconds to wait), `local=0` (phone
+only, no Touch ID dialog), `server=` (relay URL).
 
 ## Operations
 

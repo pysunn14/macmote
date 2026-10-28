@@ -41,13 +41,18 @@ struct RelayClient {
         return id
     }
 
+    func deny(kind: String, id: String) throws {
+        let (status, object) = try request("POST", "/api/approvals/\(kind)/\(id)/deny", body: [:], timeout: 3)
+        guard status == 200 else { throw Failure(description: "deny failed (\(status)): \(object["error"] ?? "")") }
+    }
+
     /// Polls until the item leaves `pending` or `deadline` passes. Returns the item (status may
     /// still be pending on timeout) or nil when the server no longer knows it.
     func wait(kind: String, id: String, deadline: Date) throws -> [String: Any]? {
         while true {
             let remaining = deadline.timeIntervalSinceNow
             if remaining <= 0 { return ["status": "timeout"] }
-            let slice = Int(min(25, max(1, remaining.rounded(.up))))
+            let slice = Int(min(5, max(1, remaining.rounded(.up))))
             let (status, object) = try request("GET", "/api/approvals/\(kind)/\(id)/wait?timeout=\(slice)", timeout: TimeInterval(slice + 10))
             if status == 404 { return nil }
             guard status == 200 else { throw Failure(description: "wait failed (\(status))") }
