@@ -30,6 +30,9 @@
     <symbol id="i-kbd" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.75" y="11.25" width="18.5" height="9" rx="2.2"/><path d="M6.6 14.6h.01M10.2 14.6h.01M13.8 14.6h.01M17.4 14.6h.01M8.2 17.3h7.6M12 3.4v2.6M7.1 5.3l1.35 1.7M16.9 5.3l-1.35 1.7"/></symbol>
     <symbol id="i-kbd-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.75" y="8.5" width="18.5" height="10" rx="2.2"/><path d="M6.6 12.2h.01M10.2 12.2h.01M13.8 12.2h.01M17.4 12.2h.01M8.2 15.2h7.6M3.5 3.5l17 17"/></symbol>
     <symbol id="i-laptop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4.6" y="5.2" width="14.8" height="10" rx="1.7"/><path d="M2.6 18.6h18.8"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="12" r="4"/><path d="M12 12h9M18 12v3M21 12v2.5"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.2 3 14.8 0 18M12 3c-3 3.2-3 14.8 0 18"/></symbol>
     <symbol id="i-bolt" viewBox="0 0 24 24"><path fill="currentColor" d="M13.3 2.4 5.7 12.9a.6.6 0 0 0 .49.95h4.75l-.95 7.1c-.08.62.72.93 1.08.42l7.5-10.6a.6.6 0 0 0-.49-.95h-4.75l1.05-7.05c.09-.62-.71-.92-1.08-.37z"/></symbol>
   </defs>
 </svg>
@@ -91,12 +94,23 @@
     <button class="glass tile" id="kbdOffBtn" data-i18n-aria="keyboard.off"><svg class="ic"><use href="#i-kbd-off"/></svg><span class="cap" id="kbdCap" data-i18n="keyboard.off"></span></button>
   </div>
 
+  <section class="glass settings" data-i18n-aria="settings">
+    <div class="setting" id="pushRow">
+      <span class="label"><svg class="ic"><use href="#i-bell"/></svg><span data-i18n="foot.push"></span></span>
+      <button class="pill" id="pushBtn" data-i18n="push.checking"></button>
+    </div>
+    <div class="setting" id="secureRow" hidden>
+      <span class="label"><svg class="ic"><use href="#i-key"/></svg><span data-i18n="foot.secure"></span></span>
+      <a class="pill" id="secureLink" href="#" data-i18n="foot.secure.link"></a>
+    </div>
+    <div class="setting">
+      <span class="label"><svg class="ic"><use href="#i-globe"/></svg><span data-i18n="foot.language"></span></span>
+      <button class="pill" id="langBtn"></button>
+    </div>
+  </section>
+
   <section class="glass foot" data-i18n-aria="foot">
-    <div class="row"><span data-i18n="foot.seen"></span><b id="seen">--</b></div>
-    <div class="row"><span data-i18n="foot.beat"></span><b id="beat">--</b></div>
-    <div class="row" id="pushRow"><span data-i18n="foot.push"></span><button class="small" id="pushBtn" data-i18n="push.checking"></button></div>
-    <div class="row" id="secureRow" hidden><span data-i18n="foot.secure"></span><a class="link" id="secureLink" href="#" data-i18n="foot.secure.link"></a></div>
-    <div class="row"><span data-i18n="foot.language"></span><button class="small" id="langBtn"></button></div>
+    <div class="status"><span data-i18n="foot.seen"></span> <b id="seen">--</b><span class="sep">·</span><span data-i18n="foot.beat"></span> <b id="beat">--</b></div>
     <div class="errs" id="errs" hidden></div>
   </section>
 </main>

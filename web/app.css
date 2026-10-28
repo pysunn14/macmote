@@ -120,10 +120,23 @@ button { font: inherit; color: inherit; border: 0; padding: 0; cursor: pointer; 
 .slider { transition: transform .35s var(--ease); }
 
 /* footer */
-.foot { margin-top: var(--gap); padding: 13px 16px; border-radius: 20px; font-size: 12px; color: var(--muted); }
-.foot .row { display: flex; justify-content: space-between; gap: 12px; }
-.foot .row + .row { margin-top: 5px; }
-.foot b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+/* settings card: one row per control, big enough to tap */
+.settings { margin-top: var(--gap); padding: 2px 16px; border-radius: 20px; }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 50px; font-size: 14px; font-weight: 600; }
+.setting + .setting { border-top: 1px solid rgba(255, 255, 255, .1); }
+.setting .label { display: flex; align-items: center; gap: 10px; color: var(--text); }
+.setting .label .ic { width: 18px; height: 18px; color: var(--muted); }
+.pill { flex: none; min-width: 64px; padding: 7px 14px; border-radius: 999px; font-size: 13px; font-weight: 650; text-align: center;
+  color: var(--text); background: rgba(255, 255, 255, .14); text-decoration: none; transition: transform .2s var(--ease), opacity .2s; }
+.pill:active { transform: scale(.95); }
+.pill[disabled] { opacity: .45; }
+button.pill[data-on="1"] { background: var(--on); color: var(--on-ink); }
+
+/* status line: diagnostics, deliberately quiet */
+.foot { margin-top: var(--gap); padding: 11px 16px; border-radius: 20px; font-size: 12px; color: var(--muted); }
+.foot .status { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 0; }
+.foot .sep { margin: 0 8px; opacity: .5; }
+.foot b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; margin-left: 4px; }
 .errs { margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255, 255, 255, .12); color: #ffb4ad; line-height: 1.45;
   -webkit-user-select: text; user-select: text; word-break: break-word; }
 
@@ -144,8 +157,6 @@ button { font: inherit; color: inherit; border: 0; padding: 0; cursor: pointer; 
 .btn[disabled] { opacity: .45; }
 .code { width: 100%; box-sizing: border-box; margin-top: 10px; padding: 12px 14px; border: 0; border-radius: 14px; font: inherit;
   font-size: 22px; font-weight: 650; letter-spacing: .25em; text-align: center; color: var(--text); background: rgba(0, 0, 0, .28); outline: none; }
-.foot .link { color: var(--text); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
-.foot button.small { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 650; background: rgba(255, 255, 255, .14); }
 
 .toast { position: fixed; left: 50%; bottom: max(26px, env(safe-area-inset-bottom)); z-index: 10; max-width: calc(100vw - 32px);
   padding: 12px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; text-align: center;
