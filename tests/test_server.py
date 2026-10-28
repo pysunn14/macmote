@@ -7,12 +7,12 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-from macremote import actions as a
-from macremote import commands as c
-from macremote import server as srv
+from macmote import actions as a
+from macmote import commands as c
+from macmote import server as srv
 from tests.fakes import FakeRunner
 
-JSON_HEADERS = {"Content-Type": "application/json", "X-Mac-Remote": "1"}
+JSON_HEADERS = {"Content-Type": "application/json", "X-Macmote": "1"}
 
 
 class GuardTests(unittest.TestCase):
@@ -20,14 +20,14 @@ class GuardTests(unittest.TestCase):
         self.assertIsNotNone(srv.check_request_headers({"Content-Type": "application/json"}))
 
     def test_requires_json(self):
-        self.assertIsNotNone(srv.check_request_headers({"X-Mac-Remote": "1", "Content-Type": "text/plain"}))
+        self.assertIsNotNone(srv.check_request_headers({"X-Macmote": "1", "Content-Type": "text/plain"}))
 
     def test_rejects_cross_site(self):
-        headers = {"X-Mac-Remote": "1", "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}
+        headers = {"X-Macmote": "1", "Content-Type": "application/json", "Sec-Fetch-Site": "cross-site"}
         self.assertIsNotNone(srv.check_request_headers(headers))
 
     def test_accepts_same_origin_json(self):
-        headers = {"X-Mac-Remote": "1", "Content-Type": "application/json; charset=utf-8", "Sec-Fetch-Site": "same-origin"}
+        headers = {"X-Macmote": "1", "Content-Type": "application/json; charset=utf-8", "Sec-Fetch-Site": "same-origin"}
         self.assertIsNone(srv.check_request_headers(headers))
 
 
@@ -232,7 +232,7 @@ class PushRouteTests(ServerCase):
 class FloodRouteTests(ServerCase):
     def test_flood_is_429_and_duplicate_is_409(self):
         relay = self.app.relay
-        from macremote import approvals as ap
+        from macmote import approvals as ap
         for n in range(ap.RATE_LIMIT):
             status, _ = self.post("/api/approvals/sudo", {**SUDO, "command": ["sudo", "echo", f"f{n}"]})
             self.assertEqual(status, 201)

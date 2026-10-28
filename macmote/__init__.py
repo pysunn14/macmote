@@ -1,4 +1,4 @@
-"""Mac Remote: a tailnet-only phone remote for this Mac.
+"""Macmote: a tailnet-only phone remote for this Mac.
 
 The server listens on loopback only and is exposed to the tailnet by Tailscale Serve.
 Each action maps to a fixed argv list (never a shell string), values are validated

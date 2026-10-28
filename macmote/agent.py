@@ -40,7 +40,7 @@ def install(port: int) -> dict:
     config.remember_origin()
     plist = {
         "Label": config.AGENT_LABEL,
-        "ProgramArguments": ["/usr/bin/python3", "-m", "macremote", "serve", "--port", str(port)],  # the CLT python, a stable path
+        "ProgramArguments": ["/usr/bin/python3", "-m", "macmote", "serve", "--port", str(port)],  # the CLT python, a stable path
         "WorkingDirectory": str(ROOT),
         "RunAtLoad": True,
         "KeepAlive": True,

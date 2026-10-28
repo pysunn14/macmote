@@ -23,7 +23,7 @@ def _cli_value(text: Optional[str]) -> Any:
 
 
 def main(argv: Optional[list] = None) -> None:
-    parser = argparse.ArgumentParser(prog="macremote", description="Mac Remote server and diagnostics")
+    parser = argparse.ArgumentParser(prog="macmote", description="Macmote server and diagnostics")
     commands = parser.add_subparsers(dest="command", required=True)
     serve_parser = commands.add_parser("serve", help="run the HTTP server")
     serve_parser.add_argument("--host", default="127.0.0.1")

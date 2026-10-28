@@ -1,7 +1,7 @@
 """Where the remote is reachable from the phone.
 
 Nothing machine-specific lives in the source: the HTTPS origin Safari needs for passkeys and
-Web Push comes from ~/.config/mac-remote/config.json, and when that file says nothing it is
+Web Push comes from ~/.config/macmote/config.json, and when that file says nothing it is
 derived from Tailscale (the MagicDNS name plus the HTTPS port). The enrollment tool still takes
 the origin on its own command line, so the root-side key file never depends on what this
 user-level process claims.
@@ -13,11 +13,11 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
-CONFIG_FILE = Path.home() / ".config" / "mac-remote" / "config.json"
+CONFIG_FILE = Path.home() / ".config" / "macmote" / "config.json"
 TAILSCALE = "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
 DEFAULT_PORT = 18790        # loopback HTTP port the server listens on
 DEFAULT_HTTPS_PORT = 18791  # port Tailscale Serve (or another TLS proxy) exposes to the phone
-AGENT_LABEL = "io.github.pysunn.mac-remote"  # launchd label of the user agent
+AGENT_LABEL = "io.github.pysunn14.macmote"  # launchd label of the user agent
 
 
 def load() -> dict:

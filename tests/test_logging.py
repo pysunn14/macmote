@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from macremote import commands as c
+from macmote import commands as c
 
 
 class RotatingLogTests(unittest.TestCase):

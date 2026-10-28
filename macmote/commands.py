@@ -14,7 +14,7 @@ from typing import Any, Optional
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
 HELPER = str(ROOT / "build" / "macctl")
-STATE_DIR = Path.home() / ".local" / "state" / "mac-remote"
+STATE_DIR = Path.home() / ".local" / "state" / "macmote"
 
 OSASCRIPT = "/usr/bin/osascript"
 PMSET = "/usr/bin/pmset"
@@ -52,7 +52,7 @@ def open_log(path: Optional[Path], max_bytes: int = 1_000_000, backups: int = 5)
         _logger = None
         return
     path.parent.mkdir(parents=True, exist_ok=True)
-    logger = logging.getLogger("macremote")
+    logger = logging.getLogger("macmote")
     logger.handlers.clear()
     logger.propagate = False
     logger.setLevel(logging.INFO)

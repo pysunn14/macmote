@@ -69,7 +69,7 @@ async function decide(item, approve, el) {
         credential_id: b64u(credential.rawId), authenticator_data: b64u(r.authenticatorData),
         client_data_json: b64u(r.clientDataJSON), signature: b64u(r.signature) });
       toast(t('approve.sent'));
-      if (item.parent.startsWith('macremote-enroll')) { setup.tested = true; saveSetup(); renderSetup(); }
+      if (item.parent.startsWith('macmote-enroll')) { setup.tested = true; saveSetup(); renderSetup(); }
     }
     el.remove();
     $('approvals').hidden = $('approvalList').children.length === 0;
@@ -184,8 +184,8 @@ $('enrollBtn').addEventListener('click', async () => {
       throw new Error(t('enroll.unavailable'));
     }
     const credential = await navigator.credentials.create({ publicKey: {
-      challenge: unb64u(item.challenge), rp: { id: location.hostname, name: 'Mac Remote' },
-      user: { id: new TextEncoder().encode(`${item.user}@${location.hostname}`), name: item.user, displayName: `${item.user} (Mac Remote)` },
+      challenge: unb64u(item.challenge), rp: { id: location.hostname, name: 'Macmote' },
+      user: { id: new TextEncoder().encode(`${item.user}@${location.hostname}`), name: item.user, displayName: `${item.user} (Macmote)` },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
       authenticatorSelection: { authenticatorAttachment: 'platform', residentKey: 'required', userVerification: 'required' },
       attestation: 'none', timeout: 120000 } });

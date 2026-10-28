@@ -1,4 +1,4 @@
-"""`macremote setup`: one guided run from a fresh checkout to an enrolled phone.
+"""`macmote setup`: one guided run from a fresh checkout to an enrolled phone.
 
 Each step observes the real state (launchctl, the HTTP endpoint, `tailscale serve status`, the
 files sudo loads) before deciding whether it has anything to do, so the wizard can be re-run at
@@ -23,9 +23,9 @@ from typing import Callable, Optional
 from . import agent, config
 from .commands import ROOT
 
-HELPERS = ("macctl", "webpush", "pam_macremote.so", "macremote-enroll")
-PAM_MODULE = Path("/usr/local/lib/pam/pam_macremote.so")
-ENROLL_TOOL = Path("/usr/local/libexec/mac-remote/macremote-enroll")
+HELPERS = ("macctl", "webpush", "pam_macmote.so", "macmote-enroll")
+PAM_MODULE = Path("/usr/local/lib/pam/pam_macmote.so")
+ENROLL_TOOL = Path("/usr/local/libexec/macmote/macmote-enroll")
 SUDO_LOCAL = Path("/etc/pam.d/sudo_local")
 
 

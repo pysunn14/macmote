@@ -4,7 +4,7 @@ import os
 import subprocess
 import unittest
 
-from macremote.push import WEBPUSH
+from macmote.push import WEBPUSH
 
 RFC_8291_INPUT = {
     "as_private": "yfWPiYE-n46HLnH0KqZOF1fJJU3MYrct3AELtAQ-oRw",

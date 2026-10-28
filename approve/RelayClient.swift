@@ -1,6 +1,6 @@
 import Foundation
 
-// Talks to the user-level mac-remote server on loopback: create a request, then poll until the
+// Talks to the user-level macmote server on loopback: create a request, then poll until the
 // phone answers. The answer is verified by the caller, never trusted from the server.
 
 struct RelayClient {
@@ -14,7 +14,7 @@ struct RelayClient {
         if let body = body {
             http.httpBody = try JSONSerialization.data(withJSONObject: body)
             http.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            http.setValue("1", forHTTPHeaderField: "X-Mac-Remote")
+            http.setValue("1", forHTTPHeaderField: "X-Macmote")
         }
         var status = 0
         var object: [String: Any] = [:]
@@ -29,7 +29,7 @@ struct RelayClient {
             done.signal()
         }.resume()
         done.wait()
-        if let failure = failure { throw Failure(description: "mac-remote unreachable: \(failure.localizedDescription)") }
+        if let failure = failure { throw Failure(description: "macmote unreachable: \(failure.localizedDescription)") }
         return (status, object)
     }
 

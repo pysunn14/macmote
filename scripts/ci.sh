@@ -12,7 +12,7 @@ scripts/check-private.sh --all
 
 step "build native helpers"
 scripts/build.sh
-for name in macctl webpush pam_macremote.so macremote-enroll pamtest passkey-selftest; do
+for name in macctl webpush pam_macmote.so macmote-enroll pamtest passkey-selftest; do
     [ -x "build/$name" ] || { echo "missing build/$name" >&2; exit 1; }
 done
 
@@ -33,9 +33,9 @@ for asset in ("app.css", "i18n.js", "app.js", "approvals.js", "manifest.webmanif
 PY
 
 step "pam module exports and links"
-nm -gU build/pam_macremote.so | grep -q " T _pam_sm_authenticate"
-nm -gU build/pam_macremote.so | grep -q " T _pam_sm_setcred"
-otool -L build/pam_macremote.so | grep -q "/usr/lib/swift/libswiftCore.dylib"
+nm -gU build/pam_macmote.so | grep -q " T _pam_sm_authenticate"
+nm -gU build/pam_macmote.so | grep -q " T _pam_sm_setcred"
+otool -L build/pam_macmote.so | grep -q "/usr/lib/swift/libswiftCore.dylib"
 
 echo
 echo "ci: all checks passed"

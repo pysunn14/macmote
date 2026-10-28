@@ -1,6 +1,6 @@
 import unittest
 
-from macremote import state as s
+from macmote import state as s
 from tests.fakes import BATTERY_TEXT, FakeRunner
 
 VOLUME_TEXT = "output volume:56, input volume:missing value, alert volume:100, output muted:missing value"

@@ -1,4 +1,4 @@
-# Mac Remote
+# Macmote
 
 A phone remote for your Mac over your tailnet, with one unusual feature: when you are away
 from the Mac and an AI coding agent (or anyone) runs `sudo`, your iPhone gets a notification,
@@ -16,14 +16,14 @@ Korean phone (or with the footer button).
 iPhone (Safari / Home Screen app)
    │  HTTPS, passkey (WebAuthn), Web Push
    ▼
-Tailscale Serve  (TLS, tailnet only)  ──►  127.0.0.1:18790  macremote server (your user)
+Tailscale Serve  (TLS, tailnet only)  ──►  127.0.0.1:18790  macmote server (your user)
                                                │    relays approval requests, never judges them
                                                │
-sudo ──► pam_macremote.so (root) ──────────────┘    verifies the Face ID signature with
-                                                    /etc/mac-remote/passkeys.json (root, 0600)
+sudo ──► pam_macmote.so (root) ──────────────┘    verifies the Face ID signature with
+                                                    /etc/macmote/passkeys.json (root, 0600)
 ```
 
-- `macremote/` – Python standard library server: state, actions, the approval relay, Web Push.
+- `macmote/` – Python standard library server: state, actions, the approval relay, Web Push.
 - `macctl.swift` – private-API helper for keyboard backlight, display brightness, lock.
 - `approve/` – the PAM module, the passkey enrollment tool, the Web Push crypto helper, and the
   test tools. All Swift, CryptoKit only.
@@ -62,7 +62,7 @@ sudo ──► pam_macremote.so (root) ─────────────�
 ## Install
 
 ```sh
-python3 -m macremote setup
+python3 -m macmote setup
 ```
 
 The wizard checks prerequisites, builds the helpers, installs the launchd agent, proposes the
@@ -80,21 +80,21 @@ The pieces are available on their own as well:
 
 ```sh
 scripts/build.sh                          # helpers, PAM module, tools, icons
-python3 -m macremote agent install        # launchd user agent; remembers the HTTPS origin in the config file
+python3 -m macmote agent install        # launchd user agent; remembers the HTTPS origin in the config file
 tailscale serve --bg --http=18790  http://127.0.0.1:18790   # plain page
 tailscale serve --bg --https=18791 http://127.0.0.1:18790   # HTTPS: passkeys and push need it
 sudo scripts/install-sudo.sh              # PAM module into /usr/local/lib/pam and /etc/pam.d/sudo_local
-sudo /usr/local/libexec/mac-remote/macremote-enroll enroll --origin "$(python3 -m macremote config origin)" --name iPhone --test
+sudo /usr/local/libexec/macmote/macmote-enroll enroll --origin "$(python3 -m macmote config origin)" --name iPhone --test
 ```
 
 Passkeys must be created in **Safari** (or the Home Screen app), not an in-app browser.
 Notifications only work from the Home Screen app; Safari and the Home Screen app keep separate
 storage on iOS, which is why the wizard registers in Safari and subscribes from the app.
-`macremote-enroll list` and `macremote-enroll remove <id prefix>` manage enrolled phones.
+`macmote-enroll list` and `macmote-enroll remove <id prefix>` manage enrolled phones.
 
 ## Configuration
 
-`~/.config/mac-remote/config.json`:
+`~/.config/macmote/config.json`:
 
 | key          | default                              | meaning                                        |
 | ------------ | ------------------------------------ | ---------------------------------------------- |
@@ -111,18 +111,18 @@ only, no Touch ID dialog), `server=` (relay URL).
 ## Operations
 
 ```sh
-python3 -m macremote agent status|restart|uninstall
-python3 -m macremote state                 # current state as JSON
-python3 -m macremote run volume 30         # run one action
-python3 -m macremote config                # effective configuration
-tail ~/.local/state/mac-remote/server.log        # server log: actions, approvals, push, client errors (rotates at 1 MB, 5 kept)
-tail /var/log/mac-remote-pam.log                 # PAM module log (newsyslog rotates it; see /etc/newsyslog.d/mac-remote.conf)
+python3 -m macmote agent status|restart|uninstall
+python3 -m macmote state                 # current state as JSON
+python3 -m macmote run volume 30         # run one action
+python3 -m macmote config                # effective configuration
+tail ~/.local/state/macmote/server.log        # server log: actions, approvals, push, client errors (rotates at 1 MB, 5 kept)
+tail /var/log/macmote-pam.log                 # PAM module log (newsyslog rotates it; see /etc/newsyslog.d/macmote.conf)
 sudo scripts/install-sudo.sh remove        # unhook from sudo_local, delete module and tool
 ```
 
 Every action response carries the state re-read from the system; `action.reached` says whether
 the Mac actually did it. `GET /api/state` includes per-field errors, the server heartbeat and the
-last action. `~/.local/state/mac-remote/` holds the heartbeat, push subscriptions, VAPID keys and
+last action. `~/.local/state/macmote/` holds the heartbeat, push subscriptions, VAPID keys and
 the server log; `launchd.err.log` there only receives crashes.
 
 The relay refuses more than 6 approval requests per minute (429) and an identical request while
@@ -134,7 +134,7 @@ one is still pending (409). A refused `sudo` falls through to Touch ID and the p
 sh scripts/ci.sh                             # everything CI runs: privacy scan, build, tests, self-test, page checks
 python3 -m unittest discover -s tests -t .   # server, relay, actions, push (fake runner)
 build/passkey-selftest                       # verification code against synthetic passkeys, QR round trip
-sudo build/pamtest                           # runs the module through /etc/pam.d/macremote-test
+sudo build/pamtest                           # runs the module through /etc/pam.d/macmote-test
 scripts/check-private.sh --all               # no machine-specific strings in the tree
 ```
 

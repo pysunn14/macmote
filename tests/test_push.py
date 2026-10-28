@@ -3,8 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from macremote import push as p
-from macremote.commands import InvalidAction
+from macmote import push as p
+from macmote.commands import InvalidAction
 
 SUBSCRIPTION = {"endpoint": "https://web.push.apple.com/QAbc", "keys": {"p256dh": "cDI1NmRo", "auth": "YXV0aA"}}
 

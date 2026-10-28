@@ -1,6 +1,6 @@
 import Foundation
 
-// macremote-enroll: registers an iPhone passkey for phone-approved sudo. Must run as root
+// macmote-enroll: registers an iPhone passkey for phone-approved sudo. Must run as root
 // (`sudo`), because it writes the root-only key file the PAM module trusts.
 //
 //   enroll --origin https://host:port --name iPhone [--user NAME] [--timeout 300] [--no-qr] [--test]
@@ -14,7 +14,7 @@ import Foundation
 // origin do too. With --test, a real approval request follows and its signature is verified here.
 
 func usage() -> Never {
-    FileHandle.standardError.write(Data("usage: macremote-enroll enroll --origin URL --name NAME [--user NAME] [--timeout S] [--no-qr] [--test] | list | remove ID\n".utf8))
+    FileHandle.standardError.write(Data("usage: macmote-enroll enroll --origin URL --name NAME [--user NAME] [--timeout S] [--no-qr] [--test] | list | remove ID\n".utf8))
     exit(2)
 }
 
@@ -81,7 +81,7 @@ func approvalTest(relay: RelayClient, store: KeyStore, user: String, timeout: Do
     let challenge = base64url(randomBytes(32))
     let request: [String: Any] = [
         "command": ["sudo", "echo", "setup test"], "cwd": FileManager.default.currentDirectoryPath, "user": user,
-        "pid": Int(getpid()), "ppid": Int(getppid()), "parent": "macremote-enroll (setup test)", "tty": "none",
+        "pid": Int(getpid()), "ppid": Int(getppid()), "parent": "macmote-enroll (setup test)", "tty": "none",
         "challenge": challenge, "timeout": Int(timeout),
     ]
     let id = try relay.create(kind: "sudo", request)
@@ -125,6 +125,6 @@ do {
     default: usage()
     }
 } catch {
-    FileHandle.standardError.write(Data("macremote-enroll: \(error)\n".utf8))
+    FileHandle.standardError.write(Data("macmote-enroll: \(error)\n".utf8))
     exit(1)
 }

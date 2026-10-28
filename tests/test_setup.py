@@ -1,6 +1,6 @@
 import unittest
 
-from macremote import setup
+from macmote import setup
 
 RUNNING = {"BackendState": "Running", "CertDomains": ["mac.example.ts.net"],
            "Self": {"DNSName": "mac.example.ts.net.", "TailscaleIPs": ["203.0.113.5"]}}

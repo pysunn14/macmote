@@ -27,8 +27,8 @@ def check_request_headers(headers: Any) -> Optional[str]:
     A custom header turns any cross-origin fetch into a CORS preflight, which this
     server never approves, and plain HTML forms cannot set headers at all.
     """
-    if headers.get("X-Mac-Remote") != "1":
-        return "requests without the X-Mac-Remote header are refused"
+    if headers.get("X-Macmote") != "1":
+        return "requests without the X-Macmote header are refused"
     if (headers.get("Content-Type") or "").split(";")[0].strip().lower() != "application/json":
         return "only JSON requests are accepted"
     site = headers.get("Sec-Fetch-Site")
@@ -112,7 +112,7 @@ PAGE_POLICY = ("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "MacRemote/1.0"
+    server_version = "Macmote/1.0"
     sys_version = ""
 
     def log_message(self, format: str, *args: Any) -> None:
@@ -269,7 +269,7 @@ class Handler(BaseHTTPRequestHandler):
             push.subscribe(validate_subscription(body))
         elif parts[3] == "test":
             # Setup's last step: prove that notifications reach this phone.
-            push.send({"title": "Mac Remote", "body": "Notifications work. Setup is complete.", "url": "/", "id": "test"})
+            push.send({"title": "Macmote", "body": "Notifications work. Setup is complete.", "url": "/", "id": "test"})
         else:
             endpoint = body.get("endpoint")
             if not isinstance(endpoint, str):

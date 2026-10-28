@@ -3,9 +3,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from macremote import actions as a
-from macremote import commands as c
-from macremote.state import read_state
+from macmote import actions as a
+from macmote import commands as c
+from macmote.state import read_state
 from tests.fakes import AWAKE_HELPER_JSON, FakeRunner
 
 STATE = read_state(FakeRunner())

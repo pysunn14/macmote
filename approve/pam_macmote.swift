@@ -2,11 +2,11 @@ import Foundation
 import LocalAuthentication
 import os
 
-// pam_macremote: lets the phone approve a sudo, wherever the user happens to be.
+// pam_macmote: lets the phone approve a sudo, wherever the user happens to be.
 //
 // Flow: skip (PAM_IGNORE, so the chain moves on to Touch ID and the password) when sudo was run
 // with -n, when no passkey is enrolled, or when the relay is unreachable. Otherwise post the
-// command to the mac-remote relay AND, when a display session is available, show the Mac's own
+// command to the macmote relay AND, when a display session is available, show the Mac's own
 // Touch ID dialog. Whichever answers first decides: a verified Face ID assertion from the phone
 // or a local biometric (or Apple Watch) success returns PAM_SUCCESS and cancels the other side.
 // Denials and timeouts return PAM_AUTH_ERR.
@@ -14,21 +14,21 @@ import os
 // Options on the sudo_local line: timeout=<s> (default 120), server=<url>, local=0 (phone only).
 // Test-only: debug=1 also prints every log line through the PAM conversation.
 
-let logger = OSLog(subsystem: "mac-remote", category: "pam")
+let logger = OSLog(subsystem: "macmote", category: "pam")
 // The PAM result codes come in as Int enum cases; the entry points must return Int32.
 let SUCCESS = Int32(PAM_SUCCESS)
 let AUTH_ERR = Int32(PAM_AUTH_ERR)
 let IGNORE = Int32(PAM_IGNORE)
 
 var debugHandle: OpaquePointer?
-let LOG_FILE = "/var/log/mac-remote-pam.log"  // JSON lines, like the server's log; root-written, world-readable
+let LOG_FILE = "/var/log/macmote-pam.log"  // JSON lines, like the server's log; root-written, world-readable
 // Opened once while still root: later lines may be written while the effective uid is the user
 // (see startLocalPrompt), and an open descriptor keeps working regardless.
 let logDescriptor: Int32 = open(LOG_FILE, O_WRONLY | O_APPEND | O_CREAT, 0o644)
 
 func note(_ message: String) {
     os_log("%{public}s", log: logger, type: .default, message)
-    if let pamh = debugHandle { inform(pamh, "[pam_macremote] " + message) }
+    if let pamh = debugHandle { inform(pamh, "[pam_macmote] " + message) }
     let line: [String: Any] = ["ts": isoNow(), "pid": Int(getpid()), "msg": message]
     if logDescriptor >= 0, let data = try? JSONSerialization.data(withJSONObject: line, options: [.sortedKeys]) {
         var bytes = [UInt8](data)

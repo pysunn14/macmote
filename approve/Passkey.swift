@@ -8,7 +8,7 @@ import Foundation
 
 struct Failure: Error, CustomStringConvertible { let description: String }
 
-let KEY_FILE = "/etc/mac-remote/passkeys.json"
+let KEY_FILE = "/etc/macmote/passkeys.json"
 
 func base64url(_ data: Data) -> String {
     data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_")

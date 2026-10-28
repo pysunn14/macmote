@@ -1,7 +1,7 @@
 import Foundation
 
 // pamtest: runs pam_authenticate for the service named on the command line (default
-// "macremote-test", see scripts/install-sudo.sh) so the module can be exercised without touching
+// "macmote-test", see scripts/install-sudo.sh) so the module can be exercised without touching
 // sudo. Prints the PAM result code and relays the module's info messages to stdout.
 
 var conversation = pam_conv(conv: { count, messages, responses, _ in
@@ -13,7 +13,7 @@ var conversation = pam_conv(conv: { count, messages, responses, _ in
     return Int32(PAM_CONV_ERR)
 }, appdata_ptr: nil)
 
-let service = CommandLine.arguments.dropFirst().first ?? "macremote-test"
+let service = CommandLine.arguments.dropFirst().first ?? "macmote-test"
 let user = ProcessInfo.processInfo.environment["SUDO_USER"] ?? NSUserName()
 var started: OpaquePointer?
 guard pam_start(service, user, &conversation, &started) == Int32(PAM_SUCCESS), let handle = started else {

@@ -29,7 +29,7 @@ function setConn(ok) {
 async function call(method, path, body) {
   const options = { method, cache: 'no-store' };
   if (body) {
-    options.headers = { 'Content-Type': 'application/json', 'X-Mac-Remote': '1' };
+    options.headers = { 'Content-Type': 'application/json', 'X-Macmote': '1' };
     options.body = JSON.stringify(body);
   }
   const response = await fetch(path, options);

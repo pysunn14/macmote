@@ -25,9 +25,9 @@ Swift with system frameworks on the native side, one HTML page. Please keep it t
 
 | Path | What |
 | --- | --- |
-| `macremote/` | server package: `state`, `actions`, `approvals` (relay), `push`, `server`, `agent`, `setup`, `config` |
+| `macmote/` | server package: `state`, `actions`, `approvals` (relay), `push`, `server`, `agent`, `setup`, `config` |
 | `macctl.swift` | private-API helper the server calls |
-| `approve/` | `Passkey.swift` (verification, key file), `pam_macremote.swift`, `enroll/`, `webpush.swift`, `QRCode.swift`, `pamtest.swift`, `selftest/` |
+| `approve/` | `Passkey.swift` (verification, key file), `pam_macmote.swift`, `enroll/`, `webpush.swift`, `QRCode.swift`, `pamtest.swift`, `selftest/` |
 | `web/` | `index.html`, `app.css`, `i18n.js`, `app.js` (remote), `approvals.js` (approvals, enrollment, push, setup), `sw.js` |
 | `scripts/` | `build.sh`, `install-sudo.sh`, `check-private.sh`, `make_icon.swift` |
 | `tests/` | `unittest` suites with a fake command runner |
@@ -40,7 +40,7 @@ scripts/build.sh                           # native helpers and tools
 /usr/bin/python3 -m unittest discover -s tests -t .
 build/passkey-selftest                     # verification and QR code round trips
 sh scripts/ci.sh                           # the full set CI runs; run it before pushing
-python3 -m macremote agent restart         # after server changes
+python3 -m macmote agent restart         # after server changes
 ```
 
 Write the failing test first. Server behaviour is tested through the fake runner in
@@ -52,10 +52,10 @@ The module runs as root inside `sudo`, so a crash locks `sudo` until the line is
 `/etc/pam.d/sudo_local`. Keep a root shell open (`sudo -s`) in another terminal while testing.
 
 1. `scripts/build.sh`, then `sudo scripts/install-sudo.sh` to copy the module into place.
-2. `sudo build/pamtest` runs it through `/etc/pam.d/macremote-test`, which narrates every step
+2. `sudo build/pamtest` runs it through `/etc/pam.d/macmote-test`, which narrates every step
    (`debug=1`). Never point a real service at the test module line: OpenPAM treats a chain
    where every module returns `PAM_IGNORE` as success.
-3. Read `/var/log/mac-remote-pam.log`. Every refusal names its reason.
+3. Read `/var/log/macmote-pam.log`. Every refusal names its reason.
 
 Anything that touches verification (`approve/Passkey.swift`) needs a case in
 `approve/selftest/main.swift`, which builds synthetic passkeys with CryptoKit.

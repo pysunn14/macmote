@@ -2,8 +2,8 @@ import threading
 import time
 import unittest
 
-from macremote import approvals as ap
-from macremote.commands import InvalidAction
+from macmote import approvals as ap
+from macmote.commands import InvalidAction
 
 SUDO = {"command": ["sudo", "rm", "-rf", "/tmp/x"], "cwd": "/tmp/proj", "user": "me", "pid": 123, "ppid": 100,
         "parent": "claude", "tty": "/dev/ttys004", "challenge": "Y2hhbGxlbmdl", "timeout": 120}

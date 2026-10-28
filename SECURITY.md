@@ -1,6 +1,6 @@
 # Security
 
-Mac Remote lets a phone approve `sudo` on a Mac. That makes its security model the product, so
+Macmote lets a phone approve `sudo` on a Mac. That makes its security model the product, so
 this file states what the project promises, what it does not, and how to report a problem.
 
 ## Reporting a vulnerability
@@ -10,7 +10,7 @@ vulnerability"). Please do not open a public issue for anything that could let s
 command as root, approve a request they should not, or read the key file.
 
 Include the macOS and iOS versions, how the Mac is exposed (Tailscale Serve or another proxy),
-the relevant lines from `/var/log/mac-remote-pam.log` and `~/.local/state/mac-remote/launchd.err.log`,
+the relevant lines from `/var/log/macmote-pam.log` and `~/.local/state/macmote/launchd.err.log`,
 and steps to reproduce. Expect an acknowledgement within a week. Fixes land on `main`; there are
 no maintained release branches.
 
@@ -18,7 +18,7 @@ no maintained release branches.
 
 | Promise | Mechanism |
 | --- | --- |
-| Nothing running as your user can approve a `sudo` | The PAM module (root) mints a random challenge and verifies the phone's WebAuthn assertion against public keys in `/etc/mac-remote/passkeys.json` (root, mode 0600). The user-level server only relays bytes. |
+| Nothing running as your user can approve a `sudo` | The PAM module (root) mints a random challenge and verifies the phone's WebAuthn assertion against public keys in `/etc/macmote/passkeys.json` (root, mode 0600). The user-level server only relays bytes. |
 | An approval proves the phone's owner was present | `userVerification: required`; the module checks the UV flag, the rpId hash, the origin and the challenge before the ES256 signature. |
 | A key cannot be enrolled from the Mac without being root at the keyboard | Enrollment runs under `sudo`, prints a one-time token (QR) and code in the terminal, and compares them in the root tool. They never pass through the server. |
 | Other websites cannot drive the page | POST requests need a custom header and same-origin; the CSP forbids framing; the server listens on loopback only. |
@@ -41,7 +41,7 @@ no maintained release branches.
   and identical pending requests, so a flood costs at most a few notifications per minute, but
   a hostile local process can still make the phone ring.
 - **Logs contain full command lines.** Secrets passed on a `sudo` command line end up in
-  `/var/log/mac-remote-pam.log` and `~/.local/state/mac-remote/server.log`. Both rotate
+  `/var/log/macmote-pam.log` and `~/.local/state/macmote/server.log`. Both rotate
   (newsyslog and an in-process rotating handler), but rotated copies are kept.
 - **Private macOS APIs** back the keyboard backlight, brightness and lock features. They can
   break with a macOS update; failures show up in `GET /api/state` under `errors`.

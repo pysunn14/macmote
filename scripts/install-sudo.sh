@@ -6,13 +6,13 @@
 #   sudo scripts/install-sudo.sh            install or update
 #   sudo scripts/install-sudo.sh remove     take the line out of sudo_local and delete the files
 #
-# The key file /etc/mac-remote/passkeys.json is left alone by both; use macremote-enroll for it.
+# The key file /etc/macmote/passkeys.json is left alone by both; use macmote-enroll for it.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
-module=/usr/local/lib/pam/pam_macremote.so
-tool=/usr/local/libexec/mac-remote/macremote-enroll
+module=/usr/local/lib/pam/pam_macmote.so
+tool=/usr/local/libexec/macmote/macmote-enroll
 line="auth       sufficient     $module"
-marker="# mac-remote: phone approval (scripts/install-sudo.sh)"
+marker="# macmote: phone approval (scripts/install-sudo.sh)"
 
 [ "$(id -u)" -eq 0 ] || { echo "run with sudo" >&2; exit 1; }
 
@@ -22,29 +22,29 @@ if [ "${1:-}" = "remove" ]; then
         cat /etc/pam.d/sudo_local.new > /etc/pam.d/sudo_local
         rm /etc/pam.d/sudo_local.new
     fi
-    rm -f "$module" "$tool" /etc/pam.d/macremote-test /etc/newsyslog.d/mac-remote.conf
-    echo "Removed. /etc/mac-remote/passkeys.json was left in place."
+    rm -f "$module" "$tool" /etc/pam.d/macmote-test /etc/newsyslog.d/macmote.conf
+    echo "Removed. /etc/macmote/passkeys.json was left in place."
     exit 0
 fi
 
-[ -f "$root/build/pam_macremote.so" ] || { echo "run scripts/build.sh first" >&2; exit 1; }
-install -d -o root -g wheel -m 755 /usr/local/lib/pam /usr/local/libexec/mac-remote
-install -o root -g wheel -m 755 "$root/build/pam_macremote.so" "$module"
-install -o root -g wheel -m 755 "$root/build/macremote-enroll" "$tool"
+[ -f "$root/build/pam_macmote.so" ] || { echo "run scripts/build.sh first" >&2; exit 1; }
+install -d -o root -g wheel -m 755 /usr/local/lib/pam /usr/local/libexec/macmote
+install -o root -g wheel -m 755 "$root/build/pam_macmote.so" "$module"
+install -o root -g wheel -m 755 "$root/build/macmote-enroll" "$tool"
 
 # A test service lets pamtest exercise the module without touching sudo.
-printf '%s\n' "# mac-remote PAM module test service (scripts/install-sudo.sh): narrates every step" \
+printf '%s\n' "# macmote PAM module test service (scripts/install-sudo.sh): narrates every step" \
     "auth       required       $module timeout=90 debug=1" \
-    > /etc/pam.d/macremote-test
-chmod 644 /etc/pam.d/macremote-test
+    > /etc/pam.d/macmote-test
+chmod 644 /etc/pam.d/macmote-test
 
-# The module appends to /var/log/mac-remote-pam.log on every sudo; newsyslog keeps it bounded
+# The module appends to /var/log/macmote-pam.log on every sudo; newsyslog keeps it bounded
 # (rotate at 1000 KB, keep 5 compressed copies). The module reopens the file per invocation, so
 # no signal is needed.
 install -d -o root -g wheel -m 755 /etc/newsyslog.d
 printf '%s\n' "# logfilename                 [owner:group]  mode count size  when  flags" \
-    "/var/log/mac-remote-pam.log  root:wheel     644  5     1000  *     J" > /etc/newsyslog.d/mac-remote.conf
-chmod 644 /etc/newsyslog.d/mac-remote.conf
+    "/var/log/macmote-pam.log  root:wheel     644  5     1000  *     J" > /etc/newsyslog.d/macmote.conf
+chmod 644 /etc/newsyslog.d/macmote.conf
 
 if [ ! -f /etc/pam.d/sudo_local ]; then
     cp /etc/pam.d/sudo_local.template /etc/pam.d/sudo_local
@@ -61,8 +61,8 @@ chmod 644 /etc/pam.d/sudo_local
 echo "Installed"
 echo "  module: $module"
 echo "  tool:   $tool"
-echo "  log rotation: /etc/newsyslog.d/mac-remote.conf"
+echo "  log rotation: /etc/newsyslog.d/macmote.conf"
 echo "  sudo_local:"
 sed 's/^/    /' /etc/pam.d/sudo_local
-origin=$(/usr/bin/python3 -m macremote config origin 2>/dev/null || true)
+origin=$(/usr/bin/python3 -m macmote config origin 2>/dev/null || true)
 echo "Next: sudo $tool enroll --origin ${origin:-https://<host>:<port>} --name iPhone"

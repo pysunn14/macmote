@@ -3,7 +3,7 @@ import json
 import os
 import re
 
-from macremote import commands as c
+from macmote import commands as c
 
 
 HELPER_JSON = json.dumps({

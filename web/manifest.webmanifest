@@ -1,6 +1,6 @@
 {
-  "name": "Mac Remote",
-  "short_name": "Mac Remote",
+  "name": "Macmote",
+  "short_name": "Macmote",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
