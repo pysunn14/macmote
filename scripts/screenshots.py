@@ -57,7 +57,7 @@ def mock_runner(argv: list, timeout: float = 5.0) -> str:
 def shoot(url: str, name: str, lang: str, height: int) -> None:
     subprocess.run([CHROME, "--headless=new", "--disable-gpu", "--hide-scrollbars", f"--lang={lang}", f"--accept-lang={lang}",
                     # Headless Chrome will not go narrower than 500 CSS px; the page centres its 440 px column.
-                    "--window-size=500,%d" % height, "--force-device-scale-factor=2", "--virtual-time-budget=5000",
+                    "--window-size=500,%d" % height, "--force-device-scale-factor=2", "--virtual-time-budget=5000", "--force-prefers-reduced-motion",
                     f"--screenshot={OUT / name}", url], check=True, capture_output=True)
     print("wrote", OUT / name)
 

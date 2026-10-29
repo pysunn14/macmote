@@ -211,3 +211,8 @@ button.pill[data-on="1"] { background: var(--on); color: var(--on-ink); }
 .chip:active { transform: scale(.95); }
 .chip.on { background: var(--on); color: var(--on-ink); }
 .chip.wait { animation: pulse 1s var(--ease) infinite; }
+
+/* honour the system's reduced-motion setting (also what the README screenshots use) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
