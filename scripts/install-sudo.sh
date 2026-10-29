@@ -64,5 +64,4 @@ echo "  tool:   $tool"
 echo "  log rotation: /etc/newsyslog.d/macmote.conf"
 echo "  sudo_local:"
 sed 's/^/    /' /etc/pam.d/sudo_local
-origin=$(/usr/bin/python3 -m macmote config origin 2>/dev/null || true)
-echo "Next: sudo $tool enroll --origin ${origin:-https://<host>:<port>} --name iPhone"
+echo "Next: macmote pair --name iPhone"

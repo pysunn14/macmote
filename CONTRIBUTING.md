@@ -25,7 +25,8 @@ Swift with system frameworks on the native side, one HTML page. Please keep it t
 
 | Path | What |
 | --- | --- |
-| `macmote/` | server package: `state`, `actions`, `approvals` (relay), `push`, `server`, `agent`, `setup`, `config` |
+| `macmote/` | server package: `cli` (the command), `state`, `actions`, `approvals` (relay), `push`, `server`, `agent`, `setup`, `config`, `risk`, `nowplaying.js` |
+| `bin/macmote` | the command; finds the package next to itself, also through Homebrew's symlink |
 | `macctl.swift` | private-API helper the server calls |
 | `approve/` | `Passkey.swift` (verification, key file), `pam_macmote.swift`, `enroll/`, `webpush.swift`, `QRCode.swift`, `pamtest.swift`, `selftest/` |
 | `web/` | `index.html`, `app.css`, `i18n.js`, `app.js` (remote), `approvals.js` (approvals, enrollment, push, setup), `sw.js` |
@@ -40,7 +41,7 @@ scripts/build.sh                           # native helpers and tools
 /usr/bin/python3 -m unittest discover -s tests -t .
 build/passkey-selftest                     # verification and QR code round trips
 sh scripts/ci.sh                           # the full set CI runs; run it before pushing
-python3 -m macmote agent restart         # after server changes
+bin/macmote agent restart                  # after server changes
 ```
 
 Write the failing test first. Server behaviour is tested through the fake runner in

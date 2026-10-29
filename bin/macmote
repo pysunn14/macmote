@@ -1,0 +1,10 @@
+#!/bin/sh
+# `macmote` command. Lives next to the package (also when Homebrew installs the tree under
+# libexec and symlinks this file into bin), so it resolves its own real location.
+self=$0
+while [ -L "$self" ]; do
+    target=$(readlink "$self")
+    case "$target" in /*) self=$target;; *) self=$(dirname "$self")/$target;; esac
+done
+root=$(cd "$(dirname "$self")/.." && pwd)
+cd "$root" && exec /usr/bin/python3 -m macmote "$@"

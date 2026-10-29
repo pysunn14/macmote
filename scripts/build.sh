@@ -21,4 +21,8 @@ swiftc -O -module-name pamtest -import-objc-header "$root/approve/bridge.h" -o "
     "$root/approve/pamtest.swift"
 swiftc -O -module-name passkey_selftest -o "$root/build/passkey-selftest" \
     "$root/approve/Passkey.swift" "$root/approve/QRCode.swift" "$root/approve/selftest/main.swift"
-swift "$root/scripts/make_icon.swift" "$root/web"
+# The Home Screen icons are committed; they are only re-rendered on request (needs a display
+# session, which build sandboxes such as Homebrew's do not have).
+if [ "${MACMOTE_ICONS:-}" = "1" ] || [ ! -f "$root/web/icon-512.png" ]; then
+    swift "$root/scripts/make_icon.swift" "$root/web"
+fi

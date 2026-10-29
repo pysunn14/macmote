@@ -5,3 +5,5 @@ Each action maps to a fixed argv list (never a shell string), values are validat
 strictly, and every response carries state re-read from the system after the action,
 so the page shows what the Mac actually did rather than what it was asked to do.
 """
+
+__version__ = "0.1.0"

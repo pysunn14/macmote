@@ -219,5 +219,5 @@ def run(args) -> int:
         subscribed = wait_until(lambda: (fetch_json(f"http://127.0.0.1:{port}/api/push/status") or {})
                                 .get("subscriptions", 0) > before, 600, every=3)
         out.line(subscribed, "subscribed" if subscribed else "no subscription yet; the page still shows requests")
-    print("\nSetup complete. Open", origin + "/", "on the phone.")
+    print("\nSetup complete. Open", origin + "/", "on the phone. `macmote status` shows what is running.")
     return 0

@@ -73,8 +73,12 @@ a control: nothing is refused because of it, and a command can always be spelled
 ## Install
 
 ```sh
-python3 -m macmote setup
+brew tap pysunn14/macmote
+brew install macmote
+macmote setup
 ```
+
+Or from a checkout: `bin/macmote setup` (add `bin/` to your `PATH` for the plain `macmote`).
 
 The wizard checks prerequisites, builds the helpers, installs the launchd agent, proposes the
 Tailscale Serve rules, installs the PAM module (asks for `sudo`), and prints a QR code. Scan it
@@ -90,18 +94,17 @@ Flags: `--name` (how the phone is listed), `--yes` (no questions), `--rebuild`, 
 The pieces are available on their own as well:
 
 ```sh
-scripts/build.sh                          # helpers, PAM module, tools, icons
-python3 -m macmote agent install        # launchd user agent; remembers the HTTPS origin in the config file
+macmote agent install        # launchd user agent; remembers the HTTPS origin in the config file
 tailscale serve --bg --http=18790  http://127.0.0.1:18790   # plain page
 tailscale serve --bg --https=18791 http://127.0.0.1:18790   # HTTPS: passkeys and push need it
-sudo scripts/install-sudo.sh              # PAM module into /usr/local/lib/pam and /etc/pam.d/sudo_local
-sudo /usr/local/libexec/macmote/macmote-enroll enroll --origin "$(python3 -m macmote config origin)" --name iPhone --test
+macmote sudo install         # PAM module into /usr/local/lib/pam and /etc/pam.d/sudo_local (asks for sudo)
+macmote pair --name iPhone   # QR code, passkey, test approval
 ```
 
 Passkeys must be created in **Safari** (or the Home Screen app), not an in-app browser.
 Notifications only work from the Home Screen app; Safari and the Home Screen app keep separate
 storage on iOS, which is why the wizard registers in Safari and subscribes from the app.
-`macmote-enroll list` and `macmote-enroll remove <id prefix>` manage enrolled phones.
+`macmote phones` and `macmote unpair <id prefix>` manage enrolled phones.
 
 ## Configuration
 
@@ -119,17 +122,23 @@ The origin must match what the phone sees exactly (scheme, host, port); passkeys
 Module options on the `sudo_local` line: `timeout=120` (seconds to wait), `local=0` (phone
 only, no Touch ID dialog), `server=` (relay URL).
 
-## Operations
+## The `macmote` command
 
 ```sh
-python3 -m macmote agent status|restart|uninstall
-python3 -m macmote state                 # current state as JSON
-python3 -m macmote run volume 30         # run one action
-python3 -m macmote config                # effective configuration
-tail ~/.local/state/macmote/server.log        # server log: actions, approvals, push, client errors (rotates at 1 MB, 5 kept)
-tail /var/log/macmote-pam.log                 # PAM module log (newsyslog rotates it; see /etc/newsyslog.d/macmote.conf)
-sudo scripts/install-sudo.sh remove        # unhook from sudo_local, delete module and tool
+macmote status                 # what is running, exposed, hooked and pending (--json for scripts)
+macmote state                  # the Mac's current state as JSON
+macmote run volume 30          # one remote action; `macmote actions` lists them
+macmote approvals [deny <id>]  # pending sudo requests
+macmote push [test]            # notification subscriptions; send a test
+macmote logs [-n 50] [--pam]   # server log, or the sudo module's log
+macmote config [key]           # effective configuration; `config set origin https://host:port`
+macmote agent install|restart|uninstall|status
+macmote sudo install|remove    # the PAM hook (asks for sudo)
+macmote pair | phones | unpair <id>
 ```
+
+Logs: `~/.local/state/macmote/server.log` (actions, approvals, push, client errors; rotates at
+1 MB, 5 kept) and `/var/log/macmote-pam.log` (the module; newsyslog rotates it).
 
 Every action response carries the state re-read from the system; `action.reached` says whether
 the Mac actually did it. `GET /api/state` includes per-field errors, the server heartbeat and the
