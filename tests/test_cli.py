@@ -54,3 +54,17 @@ class ConfigCommandTests(unittest.TestCase):
             self.assertEqual(cli.main(["config", "nope"]), 1)
         self.assertIn("https://", err.getvalue())
         self.assertIn("unknown key", err.getvalue())
+
+
+class UiTests(unittest.TestCase):
+    def test_table_pads_all_but_the_last_column(self):
+        from macmote import ui
+        text = ui.table([["a", "bb", "long text"], ["ccc", "d", "x"]], header=["id", "n", "what"])
+        lines = text.splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertTrue(lines[1].startswith(" a    bb  long text"))
+        self.assertTrue(lines[2].startswith(" ccc  d   x"))
+
+    def test_no_colour_off_a_terminal(self):
+        from macmote import ui
+        self.assertEqual(ui.paint("x", "1"), "x")  # tests never run on a tty

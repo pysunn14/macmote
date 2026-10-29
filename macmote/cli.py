@@ -23,6 +23,7 @@ from . import __version__, agent, config, setup
 from .actions import ACTIONS
 from .commands import ROOT, STATE_DIR, ActionError, run
 from .server import App, serve
+from .ui import BAD, DOT, OK, WARN, bold, cyan, dim, line, table
 
 ENROLL_TOOL = Path("/usr/local/libexec/macmote/macmote-enroll")
 PAM_MODULE = Path("/usr/local/lib/pam/pam_macmote.so")
@@ -87,20 +88,39 @@ def cmd_status(args) -> int:
     if args.json:
         print(json.dumps(report, indent=2))
         return 0
-    print(f"Macmote {__version__}")
+    print(bold(f"Macmote {__version__}") + (f" {DOT} {state['name']}" if state else ""))
     if state is None:
-        _row("server", f"not answering: {server_error}")
+        print(line(BAD, "server", server_error or "not answering", "macmote agent install"))
     else:
-        _row("server", f"running, pid {state['server']['pid']}, port {config.port()}, heartbeat {_ago(state['server']['heartbeat_at'])}")
-        if state["errors"]:
-            _row("errors", "; ".join(f"{k}: {v}" for k, v in state["errors"].items()))
-    _row("agent", f"{agent_state['label']} " + ("loaded" if agent_state["loaded"] else "not loaded" if agent_state["installed"] else "not installed"))
-    _row("origin", origin or "none (passkeys and push need an HTTPS origin; see macmote config)")
-    _row("sudo hook", f"installed, {PAM_MODULE}" if hooked else "not installed (macmote sudo install)")
-    _row("phones", "see: macmote phones")
-    if push is not None:
-        _row("push", f"{push['subscriptions']} subscription(s)" if push["configured"] else "not configured")
-    _row("pending", f"{len(pending)} sudo request(s)" + ("" if not pending else ": " + ", ".join(" ".join(i["command"]) for i in pending)))
+        print(line(OK, "server", f"running {DOT} pid {state['server']['pid']} {DOT} port {config.port()} {DOT} heartbeat {_ago(state['server']['heartbeat_at'])}"))
+        for key, message in state["errors"].items():
+            print(line(WARN, key, message))
+    if agent_state["loaded"]:
+        print(line(OK, "agent", f"{agent_state['label']} loaded"))
+    else:
+        print(line(BAD, "agent", "not installed" if not agent_state["installed"] else "installed but not loaded", "macmote agent install"))
+    if origin:
+        print(line(OK, "origin", origin))
+    else:
+        print(line(BAD, "origin", "none", "passkeys and notifications need an HTTPS origin: macmote config set origin https://host:port"))
+    if hooked:
+        print(line(OK, "sudo hook", str(PAM_MODULE)))
+    else:
+        print(line(BAD, "sudo hook", "not installed", "macmote sudo install (or macmote setup)"))
+    if push is None:
+        pass
+    elif not push["configured"]:
+        print(line(WARN, "push", "not configured", "build/webpush is missing; run scripts/build.sh"))
+    elif push["subscriptions"] == 0:
+        print(line(WARN, "push", "no phone subscribed", "turn on notifications in the Home Screen app"))
+    else:
+        print(line(OK, "push", f"{push['subscriptions']} phone(s) subscribed"))
+    print(line(DOT, "phones", dim("macmote phones")))
+    if pending:
+        print(line(WARN, "pending", f"{len(pending)} sudo request(s)"))
+        print(table([[i["id"], _ago(i["created_at"]), i["parent"], " ".join(i["command"])] for i in pending]))
+    else:
+        print(line(DOT, "pending", dim("no sudo requests")))
     return 0
 
 
@@ -130,15 +150,25 @@ def cmd_run(args) -> int:
         raise CommandError(str(error)) from None
     if args.json:
         print(json.dumps(state, ensure_ascii=False, indent=2))
+    elif state["action"]["reached"]:
+        print(f" {OK} {args.action}" + (f" {args.value}" if args.value is not None else ""))
     else:
-        print(f"{args.action}: " + ("done" if state["action"]["reached"] else "sent, but the Mac did not reach that state"))
+        print(f" {BAD} {args.action}: sent, but the Mac did not reach that state")
     return 0 if state["action"]["reached"] else 1
 
 
+ACTION_HELP = {
+    "display_off": "sleep the displays", "display_on": "wake the displays", "lock": "lock the session",
+    "away": "keyboard off, lock, displays off", "volume": "output volume", "mute": "mute or unmute",
+    "keyboard": "keyboard backlight", "brightness": "built-in display brightness",
+    "output": "default audio output device (uid from: macmote state)", "media_toggle": "play or pause",
+    "media_next": "next track", "media_previous": "previous track",
+}
+
+
 def cmd_actions(args) -> int:
-    shapes = {"none": "", "percent": " <0-100>", "bool": " true|false", "text": " <id>"}
-    for name in sorted(ACTIONS):
-        print(f"  {name}{shapes[ACTIONS[name].kind]}")
+    shapes = {"none": "", "percent": "<0-100>", "bool": "true|false", "text": "<uid>"}
+    print(table([[name, shapes[ACTIONS[name].kind], ACTION_HELP.get(name, "")] for name in sorted(ACTIONS)]))
     return 0
 
 
@@ -157,7 +187,8 @@ def cmd_config(args) -> int:
         data[key] = int(value) if key in ("port", "https_port") else value.rstrip("/")
         config.CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
         config.CONFIG_FILE.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-        print(f"{key} = {data[key]} (apply with: macmote agent restart)")
+        print(f" {OK} {key} = {data[key]}")
+        print(f"   {dim('apply with: macmote agent restart')}")
         return 0
     if len(words) > 1:
         raise CommandError("usage: macmote config [<key>] | macmote config set <key> <value>")
@@ -176,7 +207,12 @@ def cmd_config(args) -> int:
 def cmd_agent(args) -> int:
     result = {"install": lambda: agent.install(config.port()), "uninstall": agent.uninstall,
               "restart": agent.restart, "status": agent.status}[args.verb]()
-    print(json.dumps(result, indent=2))
+    if args.json:
+        print(json.dumps(result, indent=2))
+    elif result["loaded"]:
+        print(line(OK, "agent", f"{result['label']} loaded {DOT} pid {result['pid']}"))
+    else:
+        print(line(BAD if args.verb != "uninstall" else OK, "agent", "not loaded" if result["installed"] else "not installed"))
     return 0
 
 
@@ -228,20 +264,24 @@ def cmd_approvals(args) -> int:
     if args.json:
         print(json.dumps(items, ensure_ascii=False, indent=2))
     elif not items:
-        print("no pending sudo requests")
+        print(dim(" no pending sudo requests"))
     else:
-        for item in items:
-            risk = f" [{item['risk']['level']}: {item['risk']['key']}]" if item.get("risk") else ""
-            print(f"  {item['id']}  {' '.join(item['command'])}{risk}  (from {item['parent']}, {_ago(item['created_at'])})")
+        rows = [[i["id"], _ago(i["created_at"]), i["parent"], (i["risk"]["level"] + ":" + i["risk"]["key"]) if i.get("risk") else "",
+                 " ".join(i["command"])] for i in items]
+        print(table(rows, header=["id", "age", "from", "risk", "command"]))
     return 0
 
 
 def cmd_push(args) -> int:
     if args.verb == "test":
         _api("POST", "/api/push/test", {})
-        print("test notification sent")
+        print(f" {OK} test notification sent")
         return 0
-    print(json.dumps(_api("GET", "/api/push/status"), indent=2))
+    status = _api("GET", "/api/push/status")
+    if args.json:
+        print(json.dumps(status, indent=2))
+    else:
+        print(line(OK if status["configured"] else BAD, "push", f"{status['subscriptions']} phone(s) subscribed" if status["configured"] else "not configured"))
     return 0
 
 
@@ -261,8 +301,51 @@ def cmd_serve(args) -> int:
 
 # ---- parser ---------------------------------------------------------------------------------
 
+GROUPS = [
+    ("Set up", [("setup", "guided install, ends with a QR code to pair the phone"), ("pair", "pair another phone (sudo)"),
+                ("phones", "list paired phones (sudo)"), ("unpair <id>", "remove a paired phone (sudo)"),
+                ("sudo install|remove", "the PAM hook that asks the phone (sudo)")]),
+    ("Every day", [("status", "what is running, exposed, hooked and pending"), ("approvals [deny <id>]", "pending sudo requests"),
+                   ("run <action> [value]", "drive the remote from the terminal"), ("actions", "the actions and their values"),
+                   ("push [test]", "notification subscriptions; send a test")]),
+    ("Under the hood", [("state", "the Mac's state as JSON"), ("logs [--pam]", "recent log lines"),
+                        ("config [set <key> <value>]", "the HTTPS origin and ports"),
+                        ("agent install|restart|uninstall|status", "the launchd user agent"),
+                        ("serve", "run the server in the foreground")]),
+]
+
+
+class _Help(argparse.HelpFormatter):
+    """Top-level help as grouped commands instead of argparse's flat list."""
+
+
+def _usage() -> str:
+    out = [bold("macmote") + " " + dim("<command> [options]") + "\n",
+           "Phone remote for your Mac, with Face ID approval for sudo.\n"]
+    width = max(len(name) for _, items in GROUPS for name, _ in items)
+    for title, items in GROUPS:
+        out.append(cyan(title))
+        for name, text in items:
+            out.append(f"  {name.ljust(width)}  {dim(text)}")
+        out.append("")
+    out.append(dim("macmote <command> --help for options; --json where a command describes state."))
+    return "\n".join(out)
+
+
+class _Parser(argparse.ArgumentParser):
+    def format_help(self) -> str:
+        return _usage() + "\n"
+
+    def error(self, message: str) -> None:
+        self.print_usage(sys.stderr)
+        self.exit(2, f"macmote: {message}\n")
+
+    def print_usage(self, file=None) -> None:
+        print(_usage() if self.prog == "macmote" else self.format_usage(), file=file or sys.stdout)
+
+
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="macmote", description="Phone remote for your Mac, with Face ID approval for sudo.")
+    parser = _Parser(prog="macmote", description="Phone remote for your Mac, with Face ID approval for sudo.")
     parser.add_argument("--version", action="version", version=f"macmote {__version__}")
     commands = parser.add_subparsers(dest="command", metavar="<command>")
     commands.required = True
@@ -298,6 +381,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = commands.add_parser("agent", help="the launchd user agent that keeps the server running")
     p.add_argument("verb", choices=["install", "uninstall", "restart", "status"])
+    p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_agent)
 
     p = commands.add_parser("pair", help="pair a phone: prints a QR code, verifies a test approval (sudo)")
@@ -321,6 +405,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = commands.add_parser("push", help="notification subscriptions; send a test")
     p.add_argument("verb", nargs="?", default="status", choices=["status", "test"])
+    p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_push)
 
     p = commands.add_parser("logs", help="recent server log lines (or the sudo module's with --pam)")
@@ -336,6 +421,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[list] = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv:
+        print(_usage())
+        return 0
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args) or 0)

@@ -30,7 +30,7 @@ Swift with system frameworks on the native side, one HTML page. Please keep it t
 | `macctl.swift` | private-API helper the server calls |
 | `approve/` | `Passkey.swift` (verification, key file), `pam_macmote.swift`, `enroll/`, `webpush.swift`, `QRCode.swift`, `pamtest.swift`, `selftest/` |
 | `web/` | `index.html`, `app.css`, `i18n.js`, `app.js` (remote), `approvals.js` (approvals, enrollment, push, setup), `sw.js` |
-| `scripts/` | `build.sh`, `install-sudo.sh`, `check-private.sh`, `make_icon.swift` |
+| `scripts/` | `build.sh`, `install-sudo.sh`, `check-private.sh`, `ci.sh`, `screenshots.py` (README images from a mock Mac), `make_icon.swift` |
 | `tests/` | `unittest` suites with a fake command runner |
 
 ## Working on it

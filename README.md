@@ -13,6 +13,12 @@ previous/play-pause/next, and the audio output device. Add it to the Home Screen
 like an app. The UI is English by default and switches to Korean on a
 Korean phone (or with the footer button).
 
+<p align="center">
+  <img src="docs/screenshots/remote-en.png" width="30%" alt="The remote: battery, display, lock, step away, brightness, volume, keyboard, now playing, audio output">
+  <img src="docs/screenshots/approvals-en.png" width="30%" alt="Two sudo requests waiting for Face ID approval, one flagged as risky">
+  <img src="docs/screenshots/setup-en.png" width="30%" alt="The pairing steps shown on the phone after scanning the QR code">
+</p>
+
 ## How it fits together
 
 ```
