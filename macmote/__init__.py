@@ -6,4 +6,4 @@ strictly, and every response carries state re-read from the system after the act
 so the page shows what the Mac actually did rather than what it was asked to do.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
