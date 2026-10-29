@@ -71,6 +71,8 @@ enough; passkeys and push can only be tried on a real iPhone over the HTTPS orig
 
 - One change per PR, with the reasoning in the description. Mention what you tested on a real
   device and what you could not.
-- Update `README.md` when behaviour or setup changes; `SECURITY.md` when the trust model does.
+- The README stays short. Behaviour and setup details go to `docs/architecture.md`, commands to
+  `docs/cli.md`, quirks to `docs/macos-notes.md`; `SECURITY.md` when the trust model changes. Keep
+  `README.ko.md` in step, or say in the PR that the translation lags.
 - No personal paths, host names or e-mail addresses in commits, PR text or screenshots.
 - Commits end with a short body explaining why, not a changelog of files.

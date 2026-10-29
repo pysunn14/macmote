@@ -1,80 +1,24 @@
 # Macmote
 
+English | [한국어](README.ko.md)
+
 [![CI](https://github.com/pysunn14/macmote/actions/workflows/ci.yml/badge.svg)](https://github.com/pysunn14/macmote/actions/workflows/ci.yml)
 
-A phone remote for your Mac over your tailnet, with one unusual feature: when you are away
-from the Mac and an AI coding agent (or anyone) runs `sudo`, your iPhone gets a notification,
-shows the exact command, and lets you approve it with Face ID. The approval is a passkey
-signature verified by a root-owned PAM module, so nothing running as your user can forge it.
-
-The everyday part is a Control Center style web page: display on/off, lock, "step away",
-volume and mute, built-in display brightness, keyboard backlight, battery, now playing with
-previous/play-pause/next, and the audio output device. Add it to the Home Screen and it behaves
-like an app. The UI is English by default and switches to Korean on a
-Korean phone (or with the footer button).
+Approve `sudo` on your Mac from your iPhone with Face ID, and control the Mac from the same page.
 
 <p align="center">
-  <img src="docs/screenshots/remote-en.png" width="30%" alt="The remote: battery, display, lock, step away, brightness, volume, keyboard, now playing, audio output">
-  <img src="docs/screenshots/approvals-en.png" width="30%" alt="Two sudo requests waiting for Face ID approval, one flagged as risky">
-  <img src="docs/screenshots/setup-en.png" width="30%" alt="The pairing steps shown on the phone after scanning the QR code">
+  <img src="docs/screenshots/approvals-en.png" width="30%" alt="sudo requests on the phone">
+  <img src="docs/screenshots/remote-en.png" width="30%" alt="remote page">
+  <img src="docs/screenshots/setup-en.png" width="30%" alt="pairing steps">
 </p>
 
-## How it fits together
+- When `sudo` runs on the Mac, the phone gets a notification with the command. Approve it with
+  Face ID or deny it. The Mac's own Touch ID dialog is shown at the same time.
+- The page also has display on/off, lock, volume, brightness, keyboard backlight, battery, now
+  playing and audio output selection. Add it to the Home Screen to use it like an app.
+- English and Korean.
 
-```
-iPhone (Safari / Home Screen app)
-   │  HTTPS, passkey (WebAuthn), Web Push
-   ▼
-Tailscale Serve  (TLS, tailnet only)  ──►  127.0.0.1:18790  macmote server (your user)
-                                               │    relays approval requests, never judges them
-                                               │
-sudo ──► pam_macmote.so (root) ──────────────┘    verifies the Face ID signature with
-                                                    /etc/macmote/passkeys.json (root, 0600)
-```
-
-- `macmote/` – Python standard library server: state, actions, the approval relay, Web Push.
-- `macctl.swift` – private-API helper for keyboard backlight, display brightness, lock.
-- `approve/` – the PAM module, the passkey enrollment tool, the Web Push crypto helper, and the
-  test tools. All Swift, CryptoKit only.
-- `web/` – one HTML file plus a service worker for notifications.
-
-## Risky commands
-
-The relay flags `sudo` commands that erase disks, delete whole trees, change system protection
-or sudoers, pipe a download into a shell, touch system daemons or power the Mac off; the card
-turns red (amber for recursive permission changes, installers, network configuration, force
-kills, writes into system directories) and says why. This is advice for the person tapping, not
-a control: nothing is refused because of it, and a command can always be spelled around it.
-
-## Security model
-
-- The server listens on loopback only. Exposure to the phone is Tailscale Serve's job (TLS
-  certificate, tailnet-only). Any other HTTPS proxy works too; see *Configuration*.
-- A `sudo` approval is a WebAuthn assertion over a random challenge minted by the PAM module.
-  The module checks the rpId hash, the origin, the challenge, the user-verified flag (Face ID
-  happened for this request) and the ES256 signature against keys in a root-only file. The
-  user-level server only moves bytes, so an agent that edits or restarts the server still
-  cannot approve anything.
-- Enrollment is opened from the Mac with `sudo`. A one-time code is printed in the terminal and
-  compared by the root tool; it never passes through the server.
-- The module asks the phone and shows the Mac's own Touch ID dialog at the same time; the first
-  answer wins and the other prompt is withdrawn. So you can answer wherever you are, with no
-  "am I at the Mac" guess. It steps aside (`PAM_IGNORE`) when `sudo -n` was used, when no
-  passkey is enrolled, or when the relay is unreachable, so Touch ID and the password keep
-  working exactly as before. Denials and timeouts fall through to those as well.
-- Known limits: only `sudo` is covered, not macOS GUI authorization dialogs. The page is served
-  by the user-level process, so a hostile local process could in principle show a different
-  command text than the one being approved; the signature binds the challenge, not the text.
-  Approvals are cached by sudo's normal timestamp (5 minutes by default). POST requests
-  require a custom header and same-origin, which blocks cross-site forgery from other pages.
-  Request creation is rate limited so a local process cannot flood the phone with cards.
-- Push payloads are encrypted end to end (RFC 8291); Apple's servers see ciphertext.
-
-## Requirements
-
-- macOS with Xcode Command Line Tools (`swiftc`, `/usr/bin/python3`).
-- Tailscale with MagicDNS and HTTPS certificates enabled (for the recommended setup).
-- An iPhone with iCloud Keychain on (passkeys) running iOS 16.4 or later (Web Push).
+Useful when a coding agent runs on the Mac and you are not sitting in front of it.
 
 ## Install
 
@@ -84,111 +28,40 @@ brew install macmote
 macmote setup
 ```
 
-Or from a checkout: `bin/macmote setup` (add `bin/` to your `PATH` for the plain `macmote`).
+`setup` builds the helpers, starts the server, configures Tailscale Serve, installs the sudo
+hook (asks for your password or Touch ID) and prints a QR code. Scan it with the iPhone camera
+and follow the steps on the page.
 
-The wizard checks prerequisites, builds the helpers, installs the launchd agent, proposes the
-Tailscale Serve rules, installs the PAM module (asks for `sudo`), and prints a QR code. Scan it
-with the iPhone camera: it opens the page in Safari with the pairing token filled in, and the
-page walks through the rest: register with Face ID, approve a test request (the Mac verifies the
-signature and prints the result in the terminal), add the page to the Home Screen, turn on
-notifications from the Home Screen app, send a test notification. The wizard waits for that
-subscription and finishes. Re-running it is safe; every step looks before it acts.
+Requirements:
 
-Flags: `--name` (how the phone is listed), `--yes` (no questions), `--rebuild`, `--skip-sudo`,
-`--no-qr` (type the six-digit code instead).
+- macOS with the Xcode Command Line Tools
+- Tailscale with HTTPS certificates enabled (admin console → DNS → HTTPS Certificates).
+  Another HTTPS tunnel can be used instead; see [docs/architecture.md](docs/architecture.md#configuration)
+- iPhone with iCloud Keychain on (needed for passkeys), iOS 16.4 or later
 
-The pieces are available on their own as well:
+## Usage
 
-```sh
-macmote agent install        # launchd user agent; remembers the HTTPS origin in the config file
-tailscale serve --bg --http=18790  http://127.0.0.1:18790   # plain page
-tailscale serve --bg --https=18791 http://127.0.0.1:18790   # HTTPS: passkeys and push need it
-macmote sudo install         # PAM module into /usr/local/lib/pam and /etc/pam.d/sudo_local (asks for sudo)
-macmote pair --name iPhone   # QR code, passkey, test approval
-```
+- Open the page from the Home Screen. Pending `sudo` requests are shown at the top; risky
+  commands (recursive delete, disk erase, piping a download into a shell, …) are marked red.
+- Notifications only work from the Home Screen app, not from a Safari tab. After re-adding
+  the icon, turn them on again.
+- `macmote status` shows what is running and what is waiting. All commands: [docs/cli.md](docs/cli.md).
+- Known problems and fixes: [docs/macos-notes.md](docs/macos-notes.md).
 
-Passkeys must be created in **Safari** (or the Home Screen app), not an in-app browser.
-Notifications only work from the Home Screen app; Safari and the Home Screen app keep separate
-storage on iOS, which is why the wizard registers in Safari and subscribes from the app.
-`macmote phones` and `macmote unpair <id prefix>` manage enrolled phones.
+## Security
 
-## Configuration
+An approval is a passkey signature over a random challenge. It is verified by a PAM module
+running as root inside `sudo`, with public keys from a root-only file. The server that talks to
+the phone runs as the normal user and only relays messages, so a process running as the user
+(an agent, for example) cannot approve its own `sudo` even if it modifies the server. Pairing a
+phone requires `sudo` on the Mac and a one-time code that does not go through the server.
 
-`~/.config/macmote/config.json`:
+Limitations: only `sudo` is handled, not macOS's own authorization dialogs. The page is served
+by the user-level server, so a hostile local process could display a different command than the
+one being approved. See [SECURITY.md](SECURITY.md).
 
-| key          | default                              | meaning                                        |
-| ------------ | ------------------------------------ | ---------------------------------------------- |
-| `origin`     | detected from Tailscale at install   | HTTPS origin the phone uses                    |
-| `port`       | `18790`                              | loopback port the server listens on            |
-| `https_port` | `18791`                              | port used when deriving `origin` from Tailscale |
+## More
 
-Without Tailscale, set `origin` to whatever HTTPS proxy you put in front of the loopback port.
-The origin must match what the phone sees exactly (scheme, host, port); passkeys are bound to it.
-
-Module options on the `sudo_local` line: `timeout=120` (seconds to wait), `local=0` (phone
-only, no Touch ID dialog), `server=` (relay URL).
-
-## The `macmote` command
-
-```sh
-macmote status                 # what is running, exposed, hooked and pending (--json for scripts)
-macmote state                  # the Mac's current state as JSON
-macmote run volume 30          # one remote action; `macmote actions` lists them
-macmote approvals [deny <id>]  # pending sudo requests
-macmote push [test]            # notification subscriptions; send a test
-macmote logs [-n 50] [--pam]   # server log, or the sudo module's log
-macmote config [key]           # effective configuration; `config set origin https://host:port`
-macmote agent install|restart|uninstall|status
-macmote sudo install|remove    # the PAM hook (asks for sudo)
-macmote pair | phones | unpair <id>
-```
-
-Logs: `~/.local/state/macmote/server.log` (actions, approvals, push, client errors; rotates at
-1 MB, 5 kept) and `/var/log/macmote-pam.log` (the module; newsyslog rotates it).
-
-Every action response carries the state re-read from the system; `action.reached` says whether
-the Mac actually did it. `GET /api/state` includes per-field errors, the server heartbeat and the
-last action. `~/.local/state/macmote/` holds the heartbeat, push subscriptions, VAPID keys and
-the server log; `launchd.err.log` there only receives crashes.
-
-The relay refuses more than 6 approval requests per minute (429) and an identical request while
-one is still pending (409). A refused `sudo` falls through to Touch ID and the password.
-
-## Testing
-
-```sh
-sh scripts/ci.sh                             # everything CI runs: privacy scan, build, tests, self-test, page checks
-python3 -m unittest discover -s tests -t .   # server, relay, actions, push (fake runner)
-build/passkey-selftest                       # verification code against synthetic passkeys, QR round trip
-sudo build/pamtest                           # runs the module through /etc/pam.d/macmote-test
-scripts/check-private.sh --all               # no machine-specific strings in the tree
-```
-
-GitHub Actions runs `scripts/ci.sh` on a macOS runner for every push and pull request
-(`.github/workflows/ci.yml`).
-
-`build/webpush encrypt` is checked against the RFC 8291 example. The test PAM service always asks
-the phone and narrates each step; never use it for real authentication.
-
-## Observed macOS behaviour
-
-- While every display sleeps, keyboard backlight changes are silently ignored; the server
-  refuses them with 409 instead.
-- Some USB DACs expose no mute control (`output muted` is `missing value`); mute is then done
-  in software by driving the volume to 0 and restoring the remembered level.
-- Since macOS 15.4, MediaRemote only answers processes with a `com.apple.*` bundle identifier.
-  Now playing is therefore read, and transport commands sent, by `macmote/nowplaying.js`
-  running under `osascript` (which qualifies) through the ObjC bridge. Works for any player that
-  publishes to Now Playing, browsers included. Success is judged by the playing flag or the track
-  actually changing, so a future macOS that blocks commands shows as "did not change".
-- Apple's push endpoint rejects VAPID tokens whose subject mentions `localhost`.
-- Passkey creation fails with `NotAllowedError` inside in-app browsers (KakaoTalk, etc.). Use Safari.
-
-## Contributing and security
-
-See `CONTRIBUTING.md` for how the code is organised and tested, and `SECURITY.md` for the
-trust model, known limitations and how to report a vulnerability.
-
-## License
-
-MIT. See `LICENSE`.
+- [docs/architecture.md](docs/architecture.md): components and the approval flow
+- [CONTRIBUTING.md](CONTRIBUTING.md): development
+- License: MIT
